@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package driver;
+
+
+message DriverDetails{
+  string driver_id = 1;
+  string name = 2;
+  string phone = 3;
+}
+message SendDriversRequest {
+  repeated DriverDetails drivers = 1;
+}
+ 
+message SendDriversResponse {
+  string message = 1;
+  int32 count = 2;
+}
+
+message UpdateDriverStatusRequest {
+  string driver_id = 1;
+  string status = 2; // available, busy
+}
+message SetDriverPositionRequest {
+  string driver_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+}
+message SetDriverPositionResponse {
+  bool success = 1;
+}
+message UpdateDriverStatusResponse {
+  bool success = 1;
+}
+
+service DriverService {
+  
+  rpc UpdateDriverStatus(UpdateDriverStatusRequest) returns (UpdateDriverStatusResponse);
+  rpc SendDrivers(SendDriversRequest) returns (SendDriversResponse);
+  rpc SetAndForwardDriverPosition(SetDriverPositionRequest) returns (SetDriverPositionResponse);
+}

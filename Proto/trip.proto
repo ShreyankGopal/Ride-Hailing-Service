@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package trip;
+
+message StartTripRequest {
+  string rider_id = 1;
+  string driver_id = 2;
+}
+
+message StartTripResponse {
+  string trip_id = 1;
+  string otp = 2;
+}
+// the above message will be sent back to the client cancelled
+
+message PickUpRequest {
+  string trip_id = 1;
+  string otp = 2;
+}
+message PickUpResponse {
+  bool success = 1;
+  string message = 2;
+}
+message DropOffRequest {
+  string trip_id = 1;
+  
+}// drop off request must be given by the driver. so we have a driver pov and we have a client pov - this is for the driver to indicate completion
+message DropOffResponse {
+  bool success = 1;
+  string message = 2;
+}
+service TripService {
+  rpc StartTrip(StartTripRequest) returns (StartTripResponse);
+  rpc PickUp(PickUpRequest) returns (PickUpResponse);
+  rpc DropOff(DropOffRequest) returns (DropOffResponse);
+}

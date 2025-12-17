@@ -1,0 +1,6 @@
+flask 
+grpcio 
+grpcio-tools
+redis
+geohash2
+flask-cors

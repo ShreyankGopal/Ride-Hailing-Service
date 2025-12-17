@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package matching;
+import "google/protobuf/empty.proto";
+message DriverPosition {
+  string driver_id = 1;
+  double lat = 2;
+  double lon = 3;
+}
+
+message MatchRequest {
+  string rider_id = 1;
+}
+
+message MatchResponse {
+  bool found = 1;
+  string driver_id = 2;
+  string rider_id = 3;
+  string otp = 4;
+}
+
+service MatchingService {
+  // Called by LocationService whenever a driver moves
+  rpc EvaluateDriverPosition(DriverPosition) returns (google.protobuf.Empty);
+
+  // Called by API Gateway / Rider Service
+  rpc RequestMatch(MatchRequest) returns (MatchResponse);
+}

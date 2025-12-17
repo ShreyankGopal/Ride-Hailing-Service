@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package station;
+
+message Station {
+  string station_id = 1;
+  string name = 2;
+  double lat = 3;
+  double lon = 4;
+}
+
+message GetStationsRequest {}
+
+message GetStationsResponse {
+  repeated Station stations = 1;
+}
+
+service StationService {
+  rpc GetStations(GetStationsRequest) returns (GetStationsResponse);
+}

@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package rider;
+
+message RegisterRiderRequest {
+  string rider_id = 1;
+  string station_id = 2;
+  int64 arrival_time = 3; // epoch seconds
+  string destination = 4;
+}
+
+message RegisterRiderResponse {
+  bool success = 1;
+}
+message GetRiderInfoRequest {
+  string rider_id = 1;
+}
+message GetRiderInfoResponse {
+  string station_id = 1;
+  int64 arrival_time = 2;
+  string destination = 3;
+  string status = 4;
+}
+message UpdateRiderStatusRequest {
+  string rider_id = 1;
+  string status = 2; // waiting, matched, picked, completed
+}
+
+message UpdateRiderStatusResponse {
+  bool success = 1;
+}
+
+service RiderService {
+  rpc RegisterRider(RegisterRiderRequest) returns (RegisterRiderResponse);
+  rpc UpdateRiderStatus(UpdateRiderStatusRequest) returns (UpdateRiderStatusResponse);
+  rpc GetRiderInfo(GetRiderInfoRequest) returns (GetRiderInfoResponse);
+}
