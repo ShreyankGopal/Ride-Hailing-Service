@@ -22,6 +22,7 @@ def get_rider_info(rider_id: str):
     try:
         request = Rider_pb2.GetRiderInfoRequest(rider_id=rider_id)
         response = stub.GetRiderInfo(request)
+        print("Response from Rider-Service:", response)
         return response
     finally:
         channel.close()

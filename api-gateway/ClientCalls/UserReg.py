@@ -22,13 +22,22 @@ def Login(phone, password):
     try:
         channel = grpc.insecure_channel("localhost:50051")
         stub = Generated_Stubs.user.user_pb2_grpc.UserServiceStub(channel)
-        request = Generated_Stubs.user.user_pb2.LoginRequest(phone=phone, password=password)
+        request = Generated_Stubs.user.user_pb2.LoginRequest(
+            phone=phone,
+            password=password
+        )
         response = stub.Login(request)
+
         return {
-            "success": response.success
+            "success": True,
+            "token": response.token,
+            "role": response.role,   # ✅ ADD THIS
         }
+
     except Exception as e:
         return {
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "token": "",
+            "role": "",
         }

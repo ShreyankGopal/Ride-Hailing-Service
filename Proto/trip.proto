@@ -29,8 +29,16 @@ message DropOffResponse {
   bool success = 1;
   string message = 2;
 }
+message UpdateTripStatusRequest {
+  string trip_id = 1;
+  string status = 2;
+}
+message UpdateTripStatusResponse {
+  bool success = 1;
+}
 service TripService {
   rpc StartTrip(StartTripRequest) returns (StartTripResponse);
   rpc PickUp(PickUpRequest) returns (PickUpResponse);
   rpc DropOff(DropOffRequest) returns (DropOffResponse);
+  rpc UpdateTripStatus(UpdateTripStatusRequest) returns (UpdateTripStatusResponse);
 }

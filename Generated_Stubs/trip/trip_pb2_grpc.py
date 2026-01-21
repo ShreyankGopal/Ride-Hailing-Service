@@ -49,6 +49,11 @@ class TripServiceStub(object):
                 request_serializer=trip__pb2.DropOffRequest.SerializeToString,
                 response_deserializer=trip__pb2.DropOffResponse.FromString,
                 _registered_method=True)
+        self.UpdateTripStatus = channel.unary_unary(
+                '/trip.TripService/UpdateTripStatus',
+                request_serializer=trip__pb2.UpdateTripStatusRequest.SerializeToString,
+                response_deserializer=trip__pb2.UpdateTripStatusResponse.FromString,
+                _registered_method=True)
 
 
 class TripServiceServicer(object):
@@ -72,6 +77,12 @@ class TripServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def UpdateTripStatus(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_TripServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -89,6 +100,11 @@ def add_TripServiceServicer_to_server(servicer, server):
                     servicer.DropOff,
                     request_deserializer=trip__pb2.DropOffRequest.FromString,
                     response_serializer=trip__pb2.DropOffResponse.SerializeToString,
+            ),
+            'UpdateTripStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateTripStatus,
+                    request_deserializer=trip__pb2.UpdateTripStatusRequest.FromString,
+                    response_serializer=trip__pb2.UpdateTripStatusResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -172,6 +188,33 @@ class TripService(object):
             '/trip.TripService/DropOff',
             trip__pb2.DropOffRequest.SerializeToString,
             trip__pb2.DropOffResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateTripStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/trip.TripService/UpdateTripStatus',
+            trip__pb2.UpdateTripStatusRequest.SerializeToString,
+            trip__pb2.UpdateTripStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,

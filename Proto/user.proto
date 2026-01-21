@@ -20,6 +20,7 @@ message LoginRequest {
 
 message LoginResponse {
   string token = 1;
+  string role = 2;
 }
 
 service UserService {

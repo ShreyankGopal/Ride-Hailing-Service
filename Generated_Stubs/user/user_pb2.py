@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nuser.proto\x12\x04user\"N\n\x0fRegisterRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05phone\x18\x02 \x01(\t\x12\x0c\n\x04role\x18\x03 \x01(\t\x12\x10\n\x08password\x18\x04 \x01(\t\"#\n\x10RegisterResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\"/\n\x0cLoginRequest\x12\r\n\x05phone\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"\x1e\n\rLoginResponse\x12\r\n\x05token\x18\x01 \x01(\t2z\n\x0bUserService\x12\x39\n\x08Register\x12\x15.user.RegisterRequest\x1a\x16.user.RegisterResponse\x12\x30\n\x05Login\x12\x12.user.LoginRequest\x1a\x13.user.LoginResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nuser.proto\x12\x04user\"N\n\x0fRegisterRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05phone\x18\x02 \x01(\t\x12\x0c\n\x04role\x18\x03 \x01(\t\x12\x10\n\x08password\x18\x04 \x01(\t\"#\n\x10RegisterResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\"/\n\x0cLoginRequest\x12\r\n\x05phone\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\",\n\rLoginResponse\x12\r\n\x05token\x18\x01 \x01(\t\x12\x0c\n\x04role\x18\x02 \x01(\t2z\n\x0bUserService\x12\x39\n\x08Register\x12\x15.user.RegisterRequest\x1a\x16.user.RegisterResponse\x12\x30\n\x05Login\x12\x12.user.LoginRequest\x1a\x13.user.LoginResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -38,7 +38,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_LOGINREQUEST']._serialized_start=137
   _globals['_LOGINREQUEST']._serialized_end=184
   _globals['_LOGINRESPONSE']._serialized_start=186
-  _globals['_LOGINRESPONSE']._serialized_end=216
-  _globals['_USERSERVICE']._serialized_start=218
-  _globals['_USERSERVICE']._serialized_end=340
+  _globals['_LOGINRESPONSE']._serialized_end=230
+  _globals['_USERSERVICE']._serialized_start=232
+  _globals['_USERSERVICE']._serialized_end=354
 # @@protoc_insertion_point(module_scope)

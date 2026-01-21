@@ -1,5 +1,7 @@
 import os
 import sys
+import datetime
+import hashlib
 import grpc
 from concurrent import futures
 
@@ -13,6 +15,26 @@ import Generated_Stubs.user.user_pb2 as user_pb2
 import Generated_Stubs.user.user_pb2_grpc as user_pb2_grpc
 import Client.SendDriversToDriverService as send_drivers_client
 from Services.Common.redis_client import redis_client
+from db_user_repository import create_user, get_user_by_phone
+
+
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-change-me")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_SECONDS = 60 * 60  # 1 hour
+
+
+def _create_access_token(payload: dict, expires_in_seconds: int) -> str:
+    """Create a signed JWT access token with an expiration time."""
+
+    to_encode = payload.copy()
+    expire = datetime.datetime.utcnow() + datetime.timedelta(
+        seconds=expires_in_seconds
+    )
+    to_encode["exp"] = expire
+
+    import jwt
+
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 class UserService(user_pb2_grpc.UserServiceServicer):
@@ -21,8 +43,27 @@ class UserService(user_pb2_grpc.UserServiceServicer):
         print("Register request received")
         print(request)
 
+        # Hash the password before persisting it.
+        password_hash = hashlib.sha256(request.password.encode("utf-8")).hexdigest()
+
+        # Persist the user in PostgreSQL users table.
+        # For drivers, we keep the existing Redis + driver-service behavior
+        # and additionally create a user row with role "driver".
+        try:
+            user_id = create_user(
+                name=request.name,
+                phone=request.phone,
+                role=request.role,
+                password=password_hash,
+            )
+            if user_id is None:
+                return user_pb2.RegisterResponse(success=False)
+        except Exception as exc:  # noqa: BLE001
+            print(f"Error creating user in database: {exc}")
+            return user_pb2.RegisterResponse(success=False)
+
         if request.role == "driver":
-            # Atomic driver ID generation
+            # Existing driver registration logic using Redis and driver service.
             driver_id = str(redis_client.incr("counter:driver_id"))
 
             redis_client.hset(
@@ -30,37 +71,23 @@ class UserService(user_pb2_grpc.UserServiceServicer):
                 mapping={
                     "name": request.name,
                     "phone": request.phone,
-                    "role": "driver"
-                }
+                    "role": "driver",
+                },
             )
 
             try:
-                # Optional: send driver info to driver service
                 drivers = redis_client.hgetall(f"drivers:{driver_id}")
                 response = send_drivers_client.send_drivers_to_driver_service(
                     {driver_id: drivers}
                 )
                 print(f"Response from driver service: {response}")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"Error sending drivers to driver service: {e}")
                 return user_pb2.RegisterResponse(success=False)
 
             print(f"Registered driver with ID: {driver_id}")
-
         else:
-            # Atomic user ID generation
-            user_id = str(redis_client.incr("counter:user_id"))
-
-            redis_client.hset(
-                f"users:{user_id}",
-                mapping={
-                    "name": request.name,
-                    "phone": request.phone,
-                    "role": "rider"
-                }
-            )
-
-            print(f"Registered user with ID: {user_id}")
+            print(f"Registered user with DB user_id: {user_id}")
 
         return user_pb2.RegisterResponse(success=True)
 
@@ -68,13 +95,27 @@ class UserService(user_pb2_grpc.UserServiceServicer):
         print("Login request received")
         print(request)
 
-        user_key = f"users:{request.user_id}"
-        driver_key = f"drivers:{request.user_id}"
+        # Fetch user by phone from PostgreSQL.
+        user_row = get_user_by_phone(request.phone)
+        
+        if not user_row:
+            # No such user.
+            return user_pb2.LoginResponse(token="")
 
-        if redis_client.exists(user_key) or redis_client.exists(driver_key):
-            return user_pb2.LoginResponse(success=True)
+        # Verify password.
+        password_hash = hashlib.sha256(request.password.encode("utf-8")).hexdigest()
+        if user_row["password"] != password_hash:
+            return user_pb2.LoginResponse(token="")
 
-        return user_pb2.LoginResponse(success=False)
+        # Build JWT token consistent with previous auth logic.
+        token_payload = {
+            "sub": str(user_row["user_id"]),
+            "role": user_row["role"],
+        }
+        role=user_row["role"]
+        token = _create_access_token(token_payload, ACCESS_TOKEN_EXPIRE_SECONDS)
+        print(role)
+        return user_pb2.LoginResponse(token=token,role=role)
 
 
 def serve():

@@ -7,7 +7,7 @@ echo "=== Requesting match for rider 2 via /matching/request ==="
 curl -s -X POST "${GATEWAY_URL}/matching/request" \
   -H "Content-Type: application/json" \
   -d '{
-    "rider_id": "3"
+    "rider_id": "2"
   }'
 
 echo

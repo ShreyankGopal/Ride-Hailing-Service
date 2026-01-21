@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ntrip.proto\x12\x04trip\"7\n\x10StartTripRequest\x12\x10\n\x08rider_id\x18\x01 \x01(\t\x12\x11\n\tdriver_id\x18\x02 \x01(\t\"1\n\x11StartTripResponse\x12\x0f\n\x07trip_id\x18\x01 \x01(\t\x12\x0b\n\x03otp\x18\x02 \x01(\t\"-\n\rPickUpRequest\x12\x0f\n\x07trip_id\x18\x01 \x01(\t\x12\x0b\n\x03otp\x18\x02 \x01(\t\"2\n\x0ePickUpResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"!\n\x0e\x44ropOffRequest\x12\x0f\n\x07trip_id\x18\x01 \x01(\t\"3\n\x0f\x44ropOffResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t2\xb8\x01\n\x0bTripService\x12<\n\tStartTrip\x12\x16.trip.StartTripRequest\x1a\x17.trip.StartTripResponse\x12\x33\n\x06PickUp\x12\x13.trip.PickUpRequest\x1a\x14.trip.PickUpResponse\x12\x36\n\x07\x44ropOff\x12\x14.trip.DropOffRequest\x1a\x15.trip.DropOffResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ntrip.proto\x12\x04trip\"7\n\x10StartTripRequest\x12\x10\n\x08rider_id\x18\x01 \x01(\t\x12\x11\n\tdriver_id\x18\x02 \x01(\t\"1\n\x11StartTripResponse\x12\x0f\n\x07trip_id\x18\x01 \x01(\t\x12\x0b\n\x03otp\x18\x02 \x01(\t\"-\n\rPickUpRequest\x12\x0f\n\x07trip_id\x18\x01 \x01(\t\x12\x0b\n\x03otp\x18\x02 \x01(\t\"2\n\x0ePickUpResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"!\n\x0e\x44ropOffRequest\x12\x0f\n\x07trip_id\x18\x01 \x01(\t\"3\n\x0f\x44ropOffResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\":\n\x17UpdateTripStatusRequest\x12\x0f\n\x07trip_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\"+\n\x18UpdateTripStatusResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x32\x8b\x02\n\x0bTripService\x12<\n\tStartTrip\x12\x16.trip.StartTripRequest\x1a\x17.trip.StartTripResponse\x12\x33\n\x06PickUp\x12\x13.trip.PickUpRequest\x1a\x14.trip.PickUpResponse\x12\x36\n\x07\x44ropOff\x12\x14.trip.DropOffRequest\x1a\x15.trip.DropOffResponse\x12Q\n\x10UpdateTripStatus\x12\x1d.trip.UpdateTripStatusRequest\x1a\x1e.trip.UpdateTripStatusResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -43,6 +43,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_DROPOFFREQUEST']._serialized_end=260
   _globals['_DROPOFFRESPONSE']._serialized_start=262
   _globals['_DROPOFFRESPONSE']._serialized_end=313
-  _globals['_TRIPSERVICE']._serialized_start=316
-  _globals['_TRIPSERVICE']._serialized_end=500
+  _globals['_UPDATETRIPSTATUSREQUEST']._serialized_start=315
+  _globals['_UPDATETRIPSTATUSREQUEST']._serialized_end=373
+  _globals['_UPDATETRIPSTATUSRESPONSE']._serialized_start=375
+  _globals['_UPDATETRIPSTATUSRESPONSE']._serialized_end=418
+  _globals['_TRIPSERVICE']._serialized_start=421
+  _globals['_TRIPSERVICE']._serialized_end=688
 # @@protoc_insertion_point(module_scope)

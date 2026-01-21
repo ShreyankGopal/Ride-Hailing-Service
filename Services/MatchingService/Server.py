@@ -24,15 +24,16 @@ class MatchingService(Matching_pb2_grpc.MatchingServiceServicer):
 
     def RequestMatch(self, request, context):
         rider_id = request.rider_id
-        print("RequestMatch for rider:", rider_id)
+        print("[MatchingService][RequestMatch] RequestMatch for rider:", rider_id)
 
         rider_info = RiderClient.get_rider_info(rider_id)
-        print(rider_info)
+        print("[MatchingService][RequestMatch] rider_info=", rider_info)
         if not rider_info.station_id:
             print("failing at rider info client")
             return Matching_pb2.MatchResponse(found=False)
 
         stations = StationClient.get_stations().stations
+        print("[MatchingService][RequestMatch] total_stations=", len(stations))
         rider_station = next(
             (s for s in stations if s.station_id == rider_info.station_id),
             None
@@ -47,7 +48,8 @@ class MatchingService(Matching_pb2_grpc.MatchingServiceServicer):
 
         region = get_region(station_lat, station_lon)
         drivers = redis_client.hgetall(f"drivers:{region}")
-        print(region)
+        print("[MatchingService][RequestMatch] region=", region,
+              "drivers_count=", len(drivers) if drivers else 0)
         if not drivers:
             print(f'no drivers foind in the region {region}')
             return Matching_pb2.MatchResponse(found=False)
@@ -57,6 +59,7 @@ class MatchingService(Matching_pb2_grpc.MatchingServiceServicer):
 
         for driver_id, pos in drivers.items():
             if redis_client.get(f"driver_status:{driver_id}") != "available":
+                print(f"[MatchingService][RequestMatch] driver {driver_id} not available, skipping")
                 continue
 
             lat_d, lon_d = map(float, pos.split(","))
@@ -70,8 +73,13 @@ class MatchingService(Matching_pb2_grpc.MatchingServiceServicer):
             print("no driver available here\n")
             return Matching_pb2.MatchResponse(found=False)
 
+        print(f"[MatchingService][RequestMatch] nearest_driver={nearest_driver}, "
+              f"best_dist={best_dist}")
         DriverStatusUpdate.update_driver_status(nearest_driver, "Busy")
+        print(f"[MatchingService][RequestMatch] updated driver {nearest_driver} status to Busy")
         trip = StartTrip.start_trip(rider_id, nearest_driver)
+        print(f"[MatchingService][RequestMatch] trip started: rider_id={rider_id}, "
+              f"driver_id={nearest_driver}, otp={trip.otp}")
 
         return Matching_pb2.MatchResponse(
             found=True,
