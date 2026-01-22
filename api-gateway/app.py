@@ -23,6 +23,7 @@ import ClientCalls.StationReg
 import ClientCalls.Rider
 import ClientCalls.Matching
 import ClientCalls.TripStatus
+import ClientCalls.DriverReg
 from Server_Handlers.middleware.auth_middleware import auth_required
 from flask_cors import CORS
 app = flask.Flask(__name__)
@@ -189,6 +190,52 @@ def logout():
     response.set_cookie("access_token", "", max_age=0, expires=0, path="/")
     return response
 
+"""
+Sending Driver Updates here -------------------------------------------
+"""
+@app.route("/driver/online", methods=["POST"])
+@auth_required
+def driver_online():
+    """Mark the driver as online and update status via Driver-Service."""
+
+    # Extract JWT payload from auth_required middleware
+    user = getattr(flask.g, "current_user", None)
+    if not user:
+        return flask.jsonify({"error": "Unauthorized"}), 401
+
+    role = user.get("role")
+    driver_id = user.get("sub")
+
+    if role != "driver" or not driver_id:
+        return flask.jsonify({"error": "Only drivers can go online"}), 403
+
+    data = flask.request.get_json() or {}
+    status = data.get("status")
+
+    if status != "available":
+        return flask.jsonify({"error": "Invalid status"}), 400
+
+    # Call Driver-Service via gRPC to update status
+    result = ClientCalls.DriverReg.Update_Driver_Status(
+        status=status,
+        driver_id=str(driver_id),
+    )
+
+    if not result.get("success"):
+        return (
+            flask.jsonify(
+                {"error": result.get("error", "Failed to update driver status")}
+            ),
+            500,
+        )
+
+    return flask.jsonify(
+        {
+            "message": "Driver is now online",
+            "driver_id": driver_id,
+            "status": status,
+        }
+    ), 200
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)

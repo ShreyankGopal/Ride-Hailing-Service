@@ -64,7 +64,7 @@ class UserService(user_pb2_grpc.UserServiceServicer):
 
         if request.role == "driver":
             # Existing driver registration logic using Redis and driver service.
-            driver_id = str(redis_client.incr("counter:driver_id"))
+            driver_id = str(user_id)
 
             redis_client.hset(
                 f"drivers:{driver_id}",

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import "../../globals.css";
 
+
 /**
  * DriverHomePage
  *
@@ -53,7 +54,28 @@ export default function DriverHomePage() {
   if (!userId || role !== "driver") {
     return null;
   }
+  const handleOnlineClick = async () => {
+    console.log("Online clicked");
+    try {
+      const response = await axios.post(
+        "http://localhost:5001/driver/online",
+        {
+          status: "available",
+          
+        },
+        {
+          withCredentials: true,
+        },
+      );
 
+      if (response.status === 200) {
+        console.log("Driver is now online");
+        router.push("/driver/ready");
+      }
+    } catch (error) {
+      console.error("Failed to go online:", error);
+    }
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-sky-900 text-slate-50">
       <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-10 px-4 py-10 md:px-8">
@@ -125,6 +147,7 @@ export default function DriverHomePage() {
               <Link
                 href="#" // TODO: point to driver search/matching route
                 className="rounded-full bg-sky-500 px-4 py-1.5 text-xs font-semibold text-slate-950 shadow-md shadow-sky-500/40 transition group-hover:bg-sky-400"
+                onClick={handleOnlineClick}
               >
                 Go online
               </Link>
