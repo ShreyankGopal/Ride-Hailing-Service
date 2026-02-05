@@ -124,7 +124,7 @@ export default function RiderHomePage() {
                 Quick ride booking
               </span>
               <Link
-                href="#" // TODO: point to rider booking route
+                href="/rider/booking" // TODO: point to rider booking route
                 className="rounded-full bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-slate-950 shadow-md shadow-emerald-500/40 transition group-hover:bg-emerald-400"
               >
                 Book now
@@ -147,7 +147,7 @@ export default function RiderHomePage() {
                 View and edit your profile
               </span>
               <Link
-                href="#" // TODO: point to rider profile route
+                href="/rider/profile" // TODO: point to rider profile route
                 className="rounded-full bg-slate-800 px-4 py-1.5 text-xs font-semibold text-slate-100 shadow-md shadow-black/40 transition group-hover:bg-slate-700"
               >
                 Open profile
@@ -169,7 +169,7 @@ export default function RiderHomePage() {
                 Track your ride history
               </span>
               <Link
-                href="#" // TODO: point to rider trips route
+                href="/rider/trips" // TODO: point to rider trips route
                 className="rounded-full bg-slate-800 px-4 py-1.5 text-xs font-semibold text-slate-100 shadow-md shadow-black/40 transition group-hover:bg-slate-700"
               >
                 View trips

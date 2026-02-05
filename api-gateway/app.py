@@ -8,6 +8,8 @@ if project_root not in sys.path:
 import flask
 import os
 import grpc
+import json
+import time
 import Generated_Stubs.user.user_pb2
 import Generated_Stubs.user.user_pb2_grpc
 import Generated_Stubs.driver.driver_pb2
@@ -24,9 +26,13 @@ import ClientCalls.Rider
 import ClientCalls.Matching
 import ClientCalls.TripStatus
 import ClientCalls.DriverReg
+import ClientCalls.stream_location as StreamLocation
 from Server_Handlers.middleware.auth_middleware import auth_required
 from flask_cors import CORS
+from flask_sock import Sock
+
 app = flask.Flask(__name__)
+sock = Sock(app)
 CORS(
     app,
     origins=[
@@ -191,6 +197,70 @@ def logout():
     return response
 
 """
+#######################################################################################
+#                  WebSocket Handlers                                                 #
+#######################################################################################
+"""
+
+@sock.route("/ws/driver/location")
+def ws_driver_location(ws):
+    """WebSocket endpoint to receive driver location updates.
+
+    The frontend is expected to send JSON messages that include at least:
+    - userId
+    - role
+    - lat
+    - lng
+    Each message is printed on the server for now.
+    """
+
+    while True:
+        data = ws.receive()
+        if data is None:
+            break
+
+        # Expect JSON string from frontend
+        try:
+            payload = json.loads(data)
+        except Exception as e:
+            print("[WS] Invalid JSON payload:", data, "error=", e, flush=True)
+            continue
+
+        driver_id = str(payload.get("userId") or "")
+        role = payload.get("role")
+        lat = payload.get("lat")
+        lng = payload.get("lng")
+
+        # Log raw payload with credentials
+        print(
+            f"[WS] Driver location update | driver_id={driver_id} role={role} lat={lat} lng={lng}",
+            flush=True,
+        )
+
+        # Only forward driver updates with valid coordinates
+        if role != "driver" or not driver_id or lat is None or lng is None:
+            print("[WS] Skipping invalid/non-driver location update", flush=True)
+            continue
+
+        try:
+            lat_f = float(lat)
+            lon_f = float(lng)
+        except (TypeError, ValueError):
+            print("[WS] Invalid coordinate types in payload", flush=True)
+            continue
+
+        timestamp_ms = int(time.time() * 1000)
+
+        # Forward to Location-Service via gRPC streaming helper
+        result = StreamLocation.stream_location_once(
+            driver_id=driver_id,
+            lat=lat_f,
+            lon=lon_f,
+            timestamp=timestamp_ms,
+        )
+        print("[WS] Forwarded to Location-Service:", result, flush=True)
+
+"""
 Sending Driver Updates here -------------------------------------------
 """
 @app.route("/driver/online", methods=["POST"])
@@ -205,7 +275,7 @@ def driver_online():
 
     role = user.get("role")
     driver_id = user.get("sub")
-
+    #print("driver_id:", driver_id)
     if role != "driver" or not driver_id:
         return flask.jsonify({"error": "Only drivers can go online"}), 403
 
@@ -220,7 +290,7 @@ def driver_online():
         status=status,
         driver_id=str(driver_id),
     )
-
+    print("printing result in app server:", result)
     if not result.get("success"):
         return (
             flask.jsonify(

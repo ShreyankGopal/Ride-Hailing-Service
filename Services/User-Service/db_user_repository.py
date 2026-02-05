@@ -8,18 +8,19 @@ from psycopg2.extras import RealDictCursor
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", 5432))
 DB_NAME = os.getenv("DB_NAME", "lastmile")
-DB_USER = os.getenv("DB_USER", os.getenv("DB_USER", "SGBHAT"))
-DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
+DB_USER = os.getenv("DB_USER", os.getenv("DB_USER", "postgres"))
+DB_PASSWORD = os.getenv("DB_PASSWORD", "Sghu*560")
 
 
 def _get_connection():
     """Create and return a new PostgreSQL connection for the user service."""
-
+    print(f"Connecting to database: {DB_HOST}:{DB_PORT}/{DB_NAME} as {DB_USER}")
     return psycopg2.connect(
         host=DB_HOST,
         port=DB_PORT,
         dbname=DB_NAME,
         user=DB_USER,
+        password=DB_PASSWORD,
         cursor_factory=RealDictCursor,
     )
 
