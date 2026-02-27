@@ -25,7 +25,7 @@ class MatchingService(Matching_pb2_grpc.MatchingServiceServicer):
     def RequestMatch(self, request, context):
         rider_id = request.rider_id
         print("[MatchingService][RequestMatch] RequestMatch for rider:", rider_id)
-
+        
         rider_info = RiderClient.get_rider_info(rider_id)
         print("[MatchingService][RequestMatch] rider_info=", rider_info)
         if not rider_info.station_id:
@@ -72,20 +72,33 @@ class MatchingService(Matching_pb2_grpc.MatchingServiceServicer):
         if not nearest_driver:
             print("no driver available here\n")
             return Matching_pb2.MatchResponse(found=False)
+        
+        # Fetch driver name and phone from Redis driver_info:{driver_id}
+        driver_info_key = f"driver_info:{nearest_driver}"
+        driver_info = redis_client.hgetall(driver_info_key) or {}
+        driver_name = driver_info.get("name", "")
+        driver_phone = driver_info.get("phone", "")
 
-        print(f"[MatchingService][RequestMatch] nearest_driver={nearest_driver}, "
-              f"best_dist={best_dist}")
+        print(
+            f"[MatchingService][RequestMatch] nearest_driver={nearest_driver}, best_dist={best_dist}, "
+            f"name={driver_name}, phone={driver_phone}"
+        )
+
         DriverStatusUpdate.update_driver_status(nearest_driver, "Busy")
         print(f"[MatchingService][RequestMatch] updated driver {nearest_driver} status to Busy")
         trip = StartTrip.start_trip(rider_id, nearest_driver)
-        print(f"[MatchingService][RequestMatch] trip started: rider_id={rider_id}, "
-              f"driver_id={nearest_driver}, otp={trip.otp}")
+        print(
+            f"[MatchingService][RequestMatch] trip started: rider_id={rider_id}, "
+            f"driver_id={nearest_driver}, otp={trip.otp}"
+        )
 
         return Matching_pb2.MatchResponse(
             found=True,
             driver_id=nearest_driver,
             rider_id=rider_id,
-            otp=trip.otp
+            otp=trip.otp,
+            driver_name=driver_name,
+            driver_phone=driver_phone,
         )
 
 

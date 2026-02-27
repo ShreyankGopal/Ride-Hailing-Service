@@ -13,7 +13,7 @@ interface Station {
 }
 
 const STATIONS: Station[] = [
-  { id: "1", name: "Central Hub Station", lat: 12.9716, lon: 77.5946 },
+  { id: "1", name: "Central Hub Station", lat: 12.88005258237233, lon: 77.58702374463442 },
   { id: "2", name: "South Gateway Station", lat: 12.9352, lon: 77.6245 },
   { id: "3", name: "East Vista Station", lat: 12.9084, lon: 77.6753 },
   { id: "4", name: "Lakeside Terminal", lat: 12.8816, lon: 77.7261 },

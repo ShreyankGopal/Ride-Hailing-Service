@@ -20,6 +20,8 @@ message GetRiderInfoResponse {
   int64 arrival_time = 2;
   string destination = 3;
   string status = 4;
+  string name = 5;
+  string phone = 6;
 }
 message UpdateRiderStatusRequest {
   string rider_id = 1;

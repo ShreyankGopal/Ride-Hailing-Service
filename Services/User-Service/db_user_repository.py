@@ -65,3 +65,21 @@ def get_user_by_phone(phone: str) -> Optional[dict]:
     finally:
         if conn is not None:
             conn.close()
+
+
+def get_user_by_id(user_id: int) -> Optional[dict]:
+    """Fetch a single user row by user_id."""
+
+    select_sql = "SELECT user_id, name, phone, role, password FROM users WHERE user_id = %s;"
+
+    conn = None
+    try:
+        conn = _get_connection()
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(select_sql, (user_id,))
+                row = cur.fetchone()
+                return row
+    finally:
+        if conn is not None:
+            conn.close()

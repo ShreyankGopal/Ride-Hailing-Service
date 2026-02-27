@@ -20,6 +20,6 @@ def send_driver_position(driver_id, lat, lon,stub):
             longitude=lon
         )
         response = stub.SetAndForwardDriverPosition(request)
-        return {"success": True, "response": str(response)}
+        return {"success": True, "message": response.message}
     except Exception as e:
-        return {"success": False, "error": str(e), "response": None}
+        return {"success": False, "error": str(e), "message": ""}

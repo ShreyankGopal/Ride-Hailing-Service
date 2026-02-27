@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0brider.proto\x12\x05rider\"g\n\x14RegisterRiderRequest\x12\x10\n\x08rider_id\x18\x01 \x01(\t\x12\x12\n\nstation_id\x18\x02 \x01(\t\x12\x14\n\x0c\x61rrival_time\x18\x03 \x01(\x03\x12\x13\n\x0b\x64\x65stination\x18\x04 \x01(\t\"(\n\x15RegisterRiderResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\"\'\n\x13GetRiderInfoRequest\x12\x10\n\x08rider_id\x18\x01 \x01(\t\"e\n\x14GetRiderInfoResponse\x12\x12\n\nstation_id\x18\x01 \x01(\t\x12\x14\n\x0c\x61rrival_time\x18\x02 \x01(\x03\x12\x13\n\x0b\x64\x65stination\x18\x03 \x01(\t\x12\x0e\n\x06status\x18\x04 \x01(\t\"<\n\x18UpdateRiderStatusRequest\x12\x10\n\x08rider_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\",\n\x19UpdateRiderStatusResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x32\xfb\x01\n\x0cRiderService\x12J\n\rRegisterRider\x12\x1b.rider.RegisterRiderRequest\x1a\x1c.rider.RegisterRiderResponse\x12V\n\x11UpdateRiderStatus\x12\x1f.rider.UpdateRiderStatusRequest\x1a .rider.UpdateRiderStatusResponse\x12G\n\x0cGetRiderInfo\x12\x1a.rider.GetRiderInfoRequest\x1a\x1b.rider.GetRiderInfoResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0brider.proto\x12\x05rider\"g\n\x14RegisterRiderRequest\x12\x10\n\x08rider_id\x18\x01 \x01(\t\x12\x12\n\nstation_id\x18\x02 \x01(\t\x12\x14\n\x0c\x61rrival_time\x18\x03 \x01(\x03\x12\x13\n\x0b\x64\x65stination\x18\x04 \x01(\t\"(\n\x15RegisterRiderResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\"\'\n\x13GetRiderInfoRequest\x12\x10\n\x08rider_id\x18\x01 \x01(\t\"\x82\x01\n\x14GetRiderInfoResponse\x12\x12\n\nstation_id\x18\x01 \x01(\t\x12\x14\n\x0c\x61rrival_time\x18\x02 \x01(\x03\x12\x13\n\x0b\x64\x65stination\x18\x03 \x01(\t\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x0c\n\x04name\x18\x05 \x01(\t\x12\r\n\x05phone\x18\x06 \x01(\t\"<\n\x18UpdateRiderStatusRequest\x12\x10\n\x08rider_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\",\n\x19UpdateRiderStatusResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x32\xfb\x01\n\x0cRiderService\x12J\n\rRegisterRider\x12\x1b.rider.RegisterRiderRequest\x1a\x1c.rider.RegisterRiderResponse\x12V\n\x11UpdateRiderStatus\x12\x1f.rider.UpdateRiderStatusRequest\x1a .rider.UpdateRiderStatusResponse\x12G\n\x0cGetRiderInfo\x12\x1a.rider.GetRiderInfoRequest\x1a\x1b.rider.GetRiderInfoResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,12 +37,12 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_REGISTERRIDERRESPONSE']._serialized_end=167
   _globals['_GETRIDERINFOREQUEST']._serialized_start=169
   _globals['_GETRIDERINFOREQUEST']._serialized_end=208
-  _globals['_GETRIDERINFORESPONSE']._serialized_start=210
-  _globals['_GETRIDERINFORESPONSE']._serialized_end=311
-  _globals['_UPDATERIDERSTATUSREQUEST']._serialized_start=313
-  _globals['_UPDATERIDERSTATUSREQUEST']._serialized_end=373
-  _globals['_UPDATERIDERSTATUSRESPONSE']._serialized_start=375
-  _globals['_UPDATERIDERSTATUSRESPONSE']._serialized_end=419
-  _globals['_RIDERSERVICE']._serialized_start=422
-  _globals['_RIDERSERVICE']._serialized_end=673
+  _globals['_GETRIDERINFORESPONSE']._serialized_start=211
+  _globals['_GETRIDERINFORESPONSE']._serialized_end=341
+  _globals['_UPDATERIDERSTATUSREQUEST']._serialized_start=343
+  _globals['_UPDATERIDERSTATUSREQUEST']._serialized_end=403
+  _globals['_UPDATERIDERSTATUSRESPONSE']._serialized_start=405
+  _globals['_UPDATERIDERSTATUSRESPONSE']._serialized_end=449
+  _globals['_RIDERSERVICE']._serialized_start=452
+  _globals['_RIDERSERVICE']._serialized_end=703
 # @@protoc_insertion_point(module_scope)

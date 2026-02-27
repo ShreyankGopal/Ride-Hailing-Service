@@ -19,7 +19,9 @@ def request_match(rider_id):
             "found": response.found,
             "driver_id": response.driver_id,
             "rider_id": response.rider_id,
-            "otp":response.otp
+            "otp": response.otp,
+            "driver_name": response.driver_name,
+            "driver_phone": response.driver_phone,
         }
     except Exception as e:
         return {

@@ -10,6 +10,8 @@ if project_root not in sys.path:
 
 import Generated_Stubs.rider.rider_pb2_grpc as Rider_pb2_grpc
 import Generated_Stubs.rider.rider_pb2 as Rider_pb2
+import Generated_Stubs.user.user_pb2 as user_pb2
+import Generated_Stubs.user.user_pb2_grpc as user_pb2_grpc
 
 from Services.Common.redis_client import redis_client
 
@@ -67,11 +69,34 @@ class RiderService(Rider_pb2_grpc.RiderServiceServicer):
         rider = redis_client.hgetall(rider_key)
         print(f"[RiderService][GetRiderInfo] rider data fetched for rider_id={request.rider_id}:", rider)
 
+        # Fetch user details (name, phone) from User-Service via gRPC
+        user_channel = grpc.insecure_channel("localhost:50051")
+        user_stub = user_pb2_grpc.UserServiceStub(user_channel)
+
+        user_name = ""
+        user_phone = ""
+
+        try:
+            user_response = user_stub.GetUserById(
+                user_pb2.GetUserByIdRequest(user_id=request.rider_id)
+            )
+            user_name = user_response.name
+            user_phone = user_response.phone
+            print(
+                f"[RiderService][GetRiderInfo] fetched user details for rider_id={request.rider_id}: name={user_name}, phone={user_phone}"
+            )
+        except Exception as e:
+            print(f"[RiderService][GetRiderInfo] error fetching user details: {e}")
+        finally:
+            user_channel.close()
+
         return Rider_pb2.GetRiderInfoResponse(
             station_id=rider.get("station_id", ""),
             arrival_time=int(rider.get("arrival_time", 0)),
             destination=rider.get("destination", ""),
-            status=rider.get("status", "")
+            status=rider.get("status", ""),
+            name=user_name,
+            phone=user_phone,
         )
 
 

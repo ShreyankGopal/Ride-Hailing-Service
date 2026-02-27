@@ -196,11 +196,92 @@ def logout():
     response.set_cookie("access_token", "", max_age=0, expires=0, path="/")
     return response
 
-"""
+#######################################################################################
+#                  Rider Handlers                                                     #
+#######################################################################################
+
+@app.route("/registerRider", methods=["POST"])
+@auth_required
+def register_rider():
+    """Register a rider for a station and destination.
+
+    Expects JSON body with:
+    - station_id
+    - destination
+    The rider_id is taken from the authenticated JWT subject (sub).
+    Arrival time is set to the current epoch seconds.
+    """
+
+    user = getattr(flask.g, "current_user", None)
+    if not user:
+        return flask.jsonify({"error": "Unauthorized"}), 401
+
+    rider_id = user.get("sub")
+    role = user.get("role")
+
+    if role != "rider" or not rider_id:
+        return flask.jsonify({"error": "Only riders can register"}), 403
+
+    data = flask.request.get_json() or {}
+    station_id = data.get("station_id")
+    destination = data.get("destination")
+
+    if not station_id or not destination:
+        return flask.jsonify({"error": "station_id and destination are required"}), 400
+
+    arrival_time = int(time.time())
+
+    result = ClientCalls.Rider.register(
+        rider_id=str(rider_id),
+        station_id=str(station_id),
+        arrival_time=arrival_time,
+        destination=str(destination),
+    )
+
+    if not result.get("success"):
+        return (
+            flask.jsonify(
+                {"error": result.get("error", "Failed to register rider")}
+            ),
+            500,
+        )
+
+    return flask.jsonify({"message": "Rider registered", "rider_id": rider_id}), 200
+
+#######################################################################################
+# initiate match
+#######################################################################################
+
+@app.route("/initiateMatch", methods=["POST"])
+@auth_required
+def initiate_match():
+    """Initiate a match request for the authenticated rider.
+
+    Uses the rider_id from the JWT and calls the Matching service via
+    ClientCalls.Matching.request_match, then returns the result as JSON.
+    """
+
+    user = getattr(flask.g, "current_user", None)
+    if not user:
+        return flask.jsonify({"error": "Unauthorized"}), 401
+
+    rider_id = user.get("sub")
+    role = user.get("role")
+
+    if role != "rider" or not rider_id:
+        return flask.jsonify({"error": "Only riders can initiate a match"}), 403
+
+    result = ClientCalls.Matching.request_match(str(rider_id))
+
+    status_code = 200
+    if not result.get("found") and "error" in result:
+        status_code = 500
+
+    return flask.jsonify(result), status_code
+
 #######################################################################################
 #                  WebSocket Handlers                                                 #
 #######################################################################################
-"""
 
 @sock.route("/ws/driver/location")
 def ws_driver_location(ws):
@@ -260,9 +341,10 @@ def ws_driver_location(ws):
         )
         print("[WS] Forwarded to Location-Service:", result, flush=True)
 
-"""
-Sending Driver Updates here -------------------------------------------
-"""
+#######################################################################################
+#                  Driver Handlers                                                    #
+#######################################################################################
+
 @app.route("/driver/online", methods=["POST"])
 @auth_required
 def driver_online():

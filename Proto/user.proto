@@ -22,8 +22,18 @@ message LoginResponse {
   string token = 1;
   string role = 2;
 }
-
+message GetUserByIdRequest {
+  string user_id = 1;
+}
+ 
+message GetUserByIdResponse {
+  string user_id = 1;
+  string name    = 2;
+  string phone   = 3;
+  string role    = 4;
+}
 service UserService {
   rpc Register(RegisterRequest) returns (RegisterResponse);
   rpc Login(LoginRequest) returns (LoginResponse);
+  rpc GetUserById(GetUserByIdRequest) returns (GetUserByIdResponse);
 }

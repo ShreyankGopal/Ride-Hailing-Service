@@ -51,9 +51,33 @@ class DriverService(driver_pb2_grpc.DriverServiceServicer):
 
         status = redis_client.get(f"driver_status:{driver_id}")
         print(f"[DriverService][SetAndForwardDriverPosition] driver_id={driver_id}, lat={lat}, lon={lon}, status={status}")
+        # If driver is busy, look up passenger details and return them
+        if status == "busy":
+            region = get_region(lat, lon)
+            passenger_field = f"{driver_id}:passenger"
+            passenger_details = redis_client.hget(
+                f"drivers:{region}",
+                passenger_field,
+            )
+
+            message = passenger_details if passenger_details else "busy_no_passenger"
+            print(
+                f"[DriverService][SetAndForwardDriverPosition] driver {driver_id} busy, passenger_details={passenger_details}",
+            )
+            return driver_pb2.SetDriverPositionResponse(
+                success=True,
+                message=str(message),
+            )
+
+        # For non-available (but not busy) statuses, skip updates
         if status != "available":
-            print(f"[DriverService][SetAndForwardDriverPosition] driver {driver_id} not available, skipping position update")
-            return driver_pb2.SetDriverPositionResponse(success=True)
+            print(
+                f"[DriverService][SetAndForwardDriverPosition] driver {driver_id} not available (status={status}), skipping position update",
+            )
+            return driver_pb2.SetDriverPositionResponse(
+                success=True,
+                message="not_available",
+            )
 
         region = get_region(lat, lon)
 
@@ -64,7 +88,7 @@ class DriverService(driver_pb2_grpc.DriverServiceServicer):
         )
         print(f"[DriverService][SetAndForwardDriverPosition] stored driver {driver_id} in region {region} with position {lat},{lon}")
 
-        return driver_pb2.SetDriverPositionResponse(success=True)
+        return driver_pb2.SetDriverPositionResponse(success=True, message="available")
 
 
 def serve():

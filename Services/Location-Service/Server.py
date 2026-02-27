@@ -49,6 +49,8 @@ class LocationService(Location_pb2_grpc.LocationServiceServicer):
     def StreamLocation(self, request, context):
         print("StreamLocation request received")
 
+        last_message = ""
+
         for location in request:
             driver_id = location.driver_id
             raw_lat = location.lat
@@ -74,10 +76,15 @@ class LocationService(Location_pb2_grpc.LocationServiceServicer):
                     self.driver_service_stub
                 )
                 print(f"Forwarded to DriverService: {response}")
+
+                if response.get("success"):
+                    last_message = response.get("message", "")
+                else:
+                    last_message = response.get("error", "")
             except Exception as e:
                 print(f"Error forwarding to DriverService: {e}")
 
-        return Location_pb2.Ack(message="Location received")
+        return Location_pb2.Ack(message=last_message)
 
 
 def serve():

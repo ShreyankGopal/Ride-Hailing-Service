@@ -28,6 +28,7 @@ message SetDriverPositionRequest {
 }
 message SetDriverPositionResponse {
   bool success = 1;
+  string message = 2;
 }
 message UpdateDriverStatusResponse {
   bool success = 1;

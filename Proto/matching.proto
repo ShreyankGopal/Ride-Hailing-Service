@@ -17,6 +17,8 @@ message MatchResponse {
   string driver_id = 2;
   string rider_id = 3;
   string otp = 4;
+  string driver_name = 5;
+  string driver_phone = 6;
 }
 
 service MatchingService {

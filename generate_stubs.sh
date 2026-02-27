@@ -12,7 +12,7 @@ echo "Output base:  $OUT_DIR"
 echo ""
 
 # Loop through every .proto file in the directory
-for proto_file in "$PROTO_DIR"/user.proto; do
+for proto_file in "$PROTO_DIR"/matching.proto; do
     
     # Check if file exists (prevents errors if directory is empty)
     [ -e "$proto_file" ] || continue

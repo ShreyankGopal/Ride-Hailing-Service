@@ -15,7 +15,7 @@ import Generated_Stubs.user.user_pb2 as user_pb2
 import Generated_Stubs.user.user_pb2_grpc as user_pb2_grpc
 import Client.SendDriversToDriverService as send_drivers_client
 from Services.Common.redis_client import redis_client
-from db_user_repository import create_user, get_user_by_phone
+from db_user_repository import create_user, get_user_by_phone, get_user_by_id
 
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-change-me")
@@ -116,6 +116,30 @@ class UserService(user_pb2_grpc.UserServiceServicer):
         token = _create_access_token(token_payload, ACCESS_TOKEN_EXPIRE_SECONDS)
         print(role)
         return user_pb2.LoginResponse(token=token,role=role)
+    
+    def GetUserById(self, request, context):
+        """Return user details by user_id."""
+
+        # request.user_id will be a string (per proto definition)
+        try:
+            user_id_int = int(request.user_id)
+        except ValueError:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details("user_id must be an integer")
+            return user_pb2.GetUserByIdResponse()
+
+        row = get_user_by_id(user_id_int)
+        if not row:
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            context.set_details("User not found")
+            return user_pb2.GetUserByIdResponse()
+
+        return user_pb2.GetUserByIdResponse(
+            user_id=str(row["user_id"]),
+            name=row["name"],
+            phone=row["phone"],
+            role=row["role"],
+        )
 
 
 def serve():
