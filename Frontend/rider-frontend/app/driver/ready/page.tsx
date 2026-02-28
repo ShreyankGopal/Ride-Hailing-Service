@@ -80,10 +80,20 @@ export default function DriverReadyPage() {
       // 2. Error callback
       // 3. Options
       (pos) => {
+        console.log("Geolocation success", pos);
         lastKnownRef.current = pos;
       },
-      console.error,
-      { enableHighAccuracy: true }
+      (err) => {
+        console.error("Geolocation error", {
+          code: err.code,
+          message: err.message,
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 10000,
+      }
     );
 
     const interval = setInterval(() => {

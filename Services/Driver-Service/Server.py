@@ -53,13 +53,27 @@ class DriverService(driver_pb2_grpc.DriverServiceServicer):
         print(f"[DriverService][SetAndForwardDriverPosition] driver_id={driver_id}, lat={lat}, lon={lon}, status={status}")
         # If driver is busy, look up passenger details and return them
         if status == "busy":
-            region = get_region(lat, lon)
-            passenger_field = f"{driver_id}:passenger"
-            passenger_details = redis_client.hget(
-                f"drivers:{region}",
-                passenger_field,
-            )
+            # MatchingService persists the region where it stored
+            # this driver's passenger details under driver_busy_region:{id}.
+            # Use that instead of recomputing the region from live coords,
+            # because the driver may have moved across geohash cells.
+            busy_region = redis_client.get(f"driver_busy_region:{driver_id}")
+            if busy_region:
+                passenger_field = f"{driver_id}:passenger"
+                passenger_details = redis_client.hget(
+                    f"drivers:{busy_region}",
+                    passenger_field,
+                )
+            else:
+                # Fallback: derive region from current lat/lon if no mapping.
+                region = get_region(lat, lon)
+                passenger_field = f"{driver_id}:passenger"
+                passenger_details = redis_client.hget(
+                    f"drivers:{region}",
+                    passenger_field,
+                )
 
+            print(f"[DriverService][SetAndForwardDriverPosition] passenger_details={passenger_details}")
             message = passenger_details if passenger_details else "busy_no_passenger"
             print(
                 f"[DriverService][SetAndForwardDriverPosition] driver {driver_id} busy, passenger_details={passenger_details}",
