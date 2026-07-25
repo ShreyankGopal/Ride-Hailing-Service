@@ -49,6 +49,11 @@ class DriverServiceStub(object):
                 request_serializer=driver__pb2.SetDriverPositionRequest.SerializeToString,
                 response_deserializer=driver__pb2.SetDriverPositionResponse.FromString,
                 _registered_method=True)
+        self.GetDriverPosition = channel.unary_unary(
+                '/driver.DriverService/GetDriverPosition',
+                request_serializer=driver__pb2.GetDriverPositionRequest.SerializeToString,
+                response_deserializer=driver__pb2.GetDriverPositionResponse.FromString,
+                _registered_method=True)
 
 
 class DriverServiceServicer(object):
@@ -72,6 +77,12 @@ class DriverServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetDriverPosition(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DriverServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -89,6 +100,11 @@ def add_DriverServiceServicer_to_server(servicer, server):
                     servicer.SetAndForwardDriverPosition,
                     request_deserializer=driver__pb2.SetDriverPositionRequest.FromString,
                     response_serializer=driver__pb2.SetDriverPositionResponse.SerializeToString,
+            ),
+            'GetDriverPosition': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetDriverPosition,
+                    request_deserializer=driver__pb2.GetDriverPositionRequest.FromString,
+                    response_serializer=driver__pb2.GetDriverPositionResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -172,6 +188,33 @@ class DriverService(object):
             '/driver.DriverService/SetAndForwardDriverPosition',
             driver__pb2.SetDriverPositionRequest.SerializeToString,
             driver__pb2.SetDriverPositionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetDriverPosition(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/driver.DriverService/GetDriverPosition',
+            driver__pb2.GetDriverPositionRequest.SerializeToString,
+            driver__pb2.GetDriverPositionResponse.FromString,
             options,
             channel_credentials,
             insecure,

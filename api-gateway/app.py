@@ -1,393 +1,345 @@
+"""
+api-gateway/app.py  —  FastAPI API Gateway
+==========================================
+All route handlers are ``async def``.  Blocking gRPC client calls are
+offloaded to a thread-pool via ``asyncio.to_thread`` so the event loop
+is never blocked, enabling true concurrent request handling.
+
+Run with:
+    uvicorn app:app --host 0.0.0.0 --port 5001 --reload
+"""
+
+import asyncio
+import json
 import os
 import sys
-current = os.path.dirname(os.path.realpath(__file__))
+import time
 
+current = os.path.dirname(os.path.realpath(__file__))
 project_root = os.path.dirname(current)
 if project_root not in sys.path:
     sys.path.append(project_root)
-import flask
-import os
-import grpc
-import json
-import time
-import Generated_Stubs.user.user_pb2
-import Generated_Stubs.user.user_pb2_grpc
-import Generated_Stubs.driver.driver_pb2
-import Generated_Stubs.driver.driver_pb2_grpc
-import Generated_Stubs.Location.Location_pb2
-import Generated_Stubs.Location.Location_pb2_grpc
-import Generated_Stubs.matching.matching_pb2
-import Generated_Stubs.matching.matching_pb2_grpc
-import Generated_Stubs.notification.notification_pb2
-import Generated_Stubs.notification.notification_pb2_grpc
-import ClientCalls.UserReg
-import ClientCalls.StationReg
-import ClientCalls.Rider
-import ClientCalls.Matching
-import ClientCalls.TripStatus
-import ClientCalls.DriverReg
-import ClientCalls.stream_location as StreamLocation
-from Server_Handlers.middleware.auth_middleware import auth_required
-from flask_cors import CORS
-from flask_sock import Sock
 
-app = flask.Flask(__name__)
-sock = Sock(app)
-CORS(
-    app,
-    origins=[
-        "http://localhost:8000",
-        "http://127.0.2.2:8000",
-    ],
-    supports_credentials=True,
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+import ClientCalls.DriverPosition as DriverPosition
+import ClientCalls.DriverReg
+import ClientCalls.Matching
+import ClientCalls.Rider as Rider
+import ClientCalls.stream_location as StreamLocation
+import ClientCalls.TripStatus
+import ClientCalls.UserReg
+from Server_Handlers.middleware.auth_middleware import get_current_user
+
+# ── App & Middleware ─────────────────────────────────────────────────
+
+app = FastAPI(
+    title="Ride Hailing API Gateway",
+    description="Async FastAPI gateway that proxies all calls to gRPC microservices.",
+    version="2.0.0",
 )
 
-# @app.route("/user/register", methods=["POST"])
-# def register():
-#     data = flask.request.get_json()
-#     print(data)
-#     return ClientCalls.UserReg.register(data["name"], data["phone"], data["role"], data["password"])
-# @app.route("/user/login", methods=["POST"])
-# def login():
-#     data = flask.request.get_json()
-#     print(data)
-#     return ClientCalls.UserReg.login(data["phone"], data["password"])
-# @app.route("/station/", methods=["GET"])
-# def get_stations():
-#     print("GetStations request received")
-#     return ClientCalls.StationReg.get_stations()
-# @app.route("/rider/register", methods=["POST"])
-# def register_rider():
-#     data = flask.request.get_json()
-#     print(data)
-#     return ClientCalls.Rider.register(data["rider_id"], data["station_id"], data["arrival_time"], data["destination"])
-# @app.route("/rider/update_status", methods=["POST"])
-# def update_rider_status():
-#     data = flask.request.get_json()
-#     print(data)
-#     return ClientCalls.Rider.update_rider_status(data["rider_id"], data["status"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:3000",   # Next.js dev server
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# @app.route("/matching/request", methods=["POST"])
-# def request_match():
-#     """ match request for a rider"""
-#     data = flask.request.get_json()
-#     print(data)
-#     result = ClientCalls.Matching.request_match(data["rider_id"])
-#     print(result)
-#     return flask.jsonify(result)
+# ── Pydantic request body models ─────────────────────────────────────
 
-# @app.route("/updateTripStatus", methods=["POST"])
-# def update_trip_status():
-#     data = flask.request.get_json()
-#     print(data)
-#     return ClientCalls.TripStatus.update_trip_status(data["trip_id"], data["status"])
+class SignupBody(BaseModel):
+    name: str
+    phone: str
+    role: str
+    password: str
 
-'''
-#######################################################################################
-#                  Login and Signup Handlers                                          #
-#######################################################################################
-'''
+class LoginBody(BaseModel):
+    phone: str
+    password: str
 
-def _set_auth_cookie(response: flask.Response, token: str) -> None:
+class RegisterRiderBody(BaseModel):
+    station_id: str
+    destination: str
+
+class DriverPositionBody(BaseModel):
+    driver_id: str
+
+class DriverOnlineBody(BaseModel):
+    status: str
+
+class TripStatusBody(BaseModel):
+    trip_id: str
+    status: str
+
+# ── Helper ───────────────────────────────────────────────────────────
+
+def _set_auth_cookie(response: Response, token: str) -> None:
     """Attach the JWT as an HTTP-only cookie on the response."""
-
-    # Keep cookie semantics consistent with earlier implementation.
-    max_age = 60 * 60  # 1 hour
     response.set_cookie(
-        "access_token",
-        token,
-        max_age=max_age,
+        key="access_token",
+        value=token,
+        max_age=3600,       # 1 hour
         httponly=True,
-        secure=False,
-        samesite="Lax",
+        secure=False,       # set True in production behind HTTPS
+        samesite="lax",
         path="/",
     )
 
+# ── Auth / User Routes ───────────────────────────────────────────────
 
-@app.route("/signup", methods=["POST"])
-def signup():
-    print("Signup request received")
+@app.post("/signup")
+async def signup(body: SignupBody, response: Response):
+    """Register a new user (rider or driver) and issue a JWT cookie."""
+    print("[Gateway] /signup called")
 
-    data = flask.request.get_json() or {}
-    name = data.get("name")
-    phone = data.get("phone")
-    role = data.get("role")
-    password = data.get("password")
-
-    if not all([name, phone, role, password]):
-        return flask.jsonify({"error": "Missing required fields"}), 400
-
-    # Call User-Service via gRPC to register the user.
-    reg_result = ClientCalls.UserReg.register(name, phone, role, password)
+    reg_result = await asyncio.to_thread(
+        ClientCalls.UserReg.register,
+        body.name, body.phone, body.role, body.password,
+    )
     if not reg_result.get("success"):
-        return flask.jsonify({"error": reg_result.get("error", "Signup failed")}), 500
+        raise HTTPException(
+            status_code=500,
+            detail=reg_result.get("error", "Signup failed"),
+        )
 
-    # Optionally, perform an implicit login to issue a JWT cookie immediately.
-    login_result = ClientCalls.UserReg.Login(phone, password)
-    if not login_result.get("success"):
-        # Registration succeeded but login failed; return 200 without a token.
-        return flask.jsonify({"message": "Signup successful"}), 200
+    # Auto-login after successful registration
+    login_result = await asyncio.to_thread(
+        ClientCalls.UserReg.Login, body.phone, body.password
+    )
+    if login_result.get("success"):
+        token = login_result.get("token", "")
+        if token:
+            _set_auth_cookie(response, token)
 
-    token = login_result.get("token", "")
-    response = flask.jsonify({"message": "Signup successful"})
-    if token:
-        _set_auth_cookie(response, token)
-    return response
+    return {"message": "Signup successful"}
 
 
-@app.route("/login", methods=["POST"])
-def login():
-    data = flask.request.get_json() or {}
-    phone = data.get("phone")
-    password = data.get("password")
+@app.post("/login")
+async def login(body: LoginBody, response: Response):
+    """Authenticate a user and issue a JWT cookie."""
+    print("[Gateway] /login called")
 
-    if not all([phone, password]):
-        return flask.jsonify({"error": "Missing phone or password"}), 400
-
-    # gRPC wrapper call (returns dict)
-    grpc_response = ClientCalls.UserReg.Login(phone, password)
+    grpc_response = await asyncio.to_thread(
+        ClientCalls.UserReg.Login, body.phone, body.password
+    )
 
     if not grpc_response.get("success"):
-        return flask.jsonify({
-            "error": grpc_response.get("error", "Invalid credentials")
-        }), 401
+        raise HTTPException(
+            status_code=401,
+            detail=grpc_response.get("error", "Invalid credentials"),
+        )
 
     token = grpc_response.get("token")
     role = grpc_response.get("role")
 
     if not token or not role:
-        return flask.jsonify({"error": "Invalid credentials"}), 401
-
-    response = flask.jsonify({
-        "message": "Login successful",
-        "role": role
-    })
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     _set_auth_cookie(response, token)
-    return response
+    return {"message": "Login successful", "role": role}
 
 
-@app.route("/me", methods=["GET"])
-@auth_required
-def me():
-    """Return basic information about the currently authenticated user.
-
-    Uses the JWT payload that auth_required attaches to flask.g.current_user.
-    """
-
-    user = getattr(flask.g, "current_user", None)
-    if not user:
-        return flask.jsonify({"error": "Unauthorized"}), 401
-
-    return flask.jsonify(
-        {
-            "user_id": user.get("sub"),
-            "role": user.get("role"),
-        }
-    )
+@app.get("/me")
+async def me(user: dict = Depends(get_current_user)):
+    """Return the current authenticated user's basic info from the JWT."""
+    return {"user_id": user.get("sub"), "role": user.get("role")}
 
 
-@app.route("/logout", methods=["POST"])
-def logout():
+@app.post("/logout")
+async def logout(response: Response):
     """Clear the auth cookie so the user is logged out."""
+    response.delete_cookie(key="access_token", path="/")
+    return {"message": "Logged out"}
 
-    response = flask.jsonify({"message": "Logged out"})
-    # Overwrite the cookie with empty value and immediate expiry.
-    response.set_cookie("access_token", "", max_age=0, expires=0, path="/")
-    return response
+# ── Rider Routes ─────────────────────────────────────────────────────
 
-#######################################################################################
-#                  Rider Handlers                                                     #
-#######################################################################################
+@app.post("/registerRider")
+async def register_rider(
+    body: RegisterRiderBody,
+    user: dict = Depends(get_current_user),
+):
+    """Register an authenticated rider for a station and destination.
 
-@app.route("/registerRider", methods=["POST"])
-@auth_required
-def register_rider():
-    """Register a rider for a station and destination.
-
-    Expects JSON body with:
-    - station_id
-    - destination
     The rider_id is taken from the authenticated JWT subject (sub).
     Arrival time is set to the current epoch seconds.
     """
-
-    user = getattr(flask.g, "current_user", None)
-    if not user:
-        return flask.jsonify({"error": "Unauthorized"}), 401
-
     rider_id = user.get("sub")
     role = user.get("role")
 
     if role != "rider" or not rider_id:
-        return flask.jsonify({"error": "Only riders can register"}), 403
-
-    data = flask.request.get_json() or {}
-    station_id = data.get("station_id")
-    destination = data.get("destination")
-
-    if not station_id or not destination:
-        return flask.jsonify({"error": "station_id and destination are required"}), 400
+        raise HTTPException(status_code=403, detail="Only riders can register")
 
     arrival_time = int(time.time())
 
-    result = ClientCalls.Rider.register(
-        rider_id=str(rider_id),
-        station_id=str(station_id),
-        arrival_time=arrival_time,
-        destination=str(destination),
+    result = await asyncio.to_thread(
+        Rider.register,
+        str(rider_id),
+        str(body.station_id),
+        arrival_time,
+        str(body.destination),
     )
 
     if not result.get("success"):
-        return (
-            flask.jsonify(
-                {"error": result.get("error", "Failed to register rider")}
-            ),
-            500,
+        raise HTTPException(
+            status_code=500,
+            detail=result.get("error", "Failed to register rider"),
         )
 
-    return flask.jsonify({"message": "Rider registered", "rider_id": rider_id}), 200
+    return {"message": "Rider registered", "rider_id": rider_id}
 
-#######################################################################################
-# initiate match
-#######################################################################################
 
-@app.route("/initiateMatch", methods=["POST"])
-@auth_required
-def initiate_match():
-    """Initiate a match request for the authenticated rider.
+@app.post("/initiateMatch")
+async def initiate_match(user: dict = Depends(get_current_user)):
+    """Initiate a driver–rider match for the authenticated rider.
 
-    Uses the rider_id from the JWT and calls the Matching service via
-    ClientCalls.Matching.request_match, then returns the result as JSON.
+    The gRPC call to MatchingService is offloaded to a thread so multiple
+    concurrent match requests are processed in parallel without blocking
+    the event loop.
     """
-
-    user = getattr(flask.g, "current_user", None)
-    if not user:
-        return flask.jsonify({"error": "Unauthorized"}), 401
-
     rider_id = user.get("sub")
     role = user.get("role")
 
     if role != "rider" or not rider_id:
-        return flask.jsonify({"error": "Only riders can initiate a match"}), 403
+        raise HTTPException(status_code=403, detail="Only riders can initiate a match")
 
-    result = ClientCalls.Matching.request_match(str(rider_id))
+    result = await asyncio.to_thread(
+        ClientCalls.Matching.request_match, str(rider_id)
+    )
 
-    status_code = 200
-    if not result.get("found") and "error" in result:
-        status_code = 500
+    print(f"[Gateway] /initiateMatch result: {result}")
+    status_code = 500 if not result.get("found") and "error" in result else 200
+    return JSONResponse(content=result, status_code=status_code)
 
-    return flask.jsonify(result), status_code
 
-#######################################################################################
-#                  WebSocket Handlers                                                 #
-#######################################################################################
+# ── Driver Routes ─────────────────────────────────────────────────────
 
-@sock.route("/ws/driver/location")
-def ws_driver_location(ws):
-    """WebSocket endpoint to receive driver location updates.
+@app.post("/driverPosition")
+async def driver_position(body: DriverPositionBody):
+    """Return latest known position for a given driver_id."""
+    driver_id = body.driver_id.strip()
+    if not driver_id:
+        raise HTTPException(status_code=400, detail="driver_id is required")
 
-    The frontend is expected to send JSON messages that include at least:
-    - userId
-    - role
-    - lat
-    - lng
-    Each message is printed on the server for now.
-    """
+    result = await asyncio.to_thread(
+        DriverPosition.get_driver_position, driver_id
+    )
+    status_code = 200 if result.get("found") and not result.get("error") else 500
+    return JSONResponse(content=result, status_code=status_code)
 
-    while True:
-        data = ws.receive()
-        if data is None:
-            break
 
-        # Expect JSON string from frontend
-        try:
-            payload = json.loads(data)
-        except Exception as e:
-            print("[WS] Invalid JSON payload:", data, "error=", e, flush=True)
-            continue
-
-        driver_id = str(payload.get("userId") or "")
-        role = payload.get("role")
-        lat = payload.get("lat")
-        lng = payload.get("lng")
-
-        # Log raw payload with credentials
-        print(
-            f"[WS] Driver location update | driver_id={driver_id} role={role} lat={lat} lng={lng}",
-            flush=True,
-        )
-
-        # Only forward driver updates with valid coordinates
-        if role != "driver" or not driver_id or lat is None or lng is None:
-            print("[WS] Skipping invalid/non-driver location update", flush=True)
-            continue
-
-        try:
-            lat_f = float(lat)
-            lon_f = float(lng)
-        except (TypeError, ValueError):
-            print("[WS] Invalid coordinate types in payload", flush=True)
-            continue
-
-        timestamp_ms = int(time.time() * 1000)
-
-        # Forward to Location-Service via gRPC streaming helper
-        result = StreamLocation.stream_location_once(
-            driver_id=driver_id,
-            lat=lat_f,
-            lon=lon_f,
-            timestamp=timestamp_ms,
-        )
-        print("[WS] Forwarded to Location-Service:", result, flush=True)
-
-#######################################################################################
-#                  Driver Handlers                                                    #
-#######################################################################################
-
-@app.route("/driver/online", methods=["POST"])
-@auth_required
-def driver_online():
-    """Mark the driver as online and update status via Driver-Service."""
-
-    # Extract JWT payload from auth_required middleware
-    user = getattr(flask.g, "current_user", None)
-    if not user:
-        return flask.jsonify({"error": "Unauthorized"}), 401
-
+@app.post("/driver/online")
+async def driver_online(
+    body: DriverOnlineBody,
+    user: dict = Depends(get_current_user),
+):
+    """Mark the authenticated driver as online / available."""
     role = user.get("role")
     driver_id = user.get("sub")
-    #print("driver_id:", driver_id)
+
     if role != "driver" or not driver_id:
-        return flask.jsonify({"error": "Only drivers can go online"}), 403
+        raise HTTPException(status_code=403, detail="Only drivers can go online")
 
-    data = flask.request.get_json() or {}
-    status = data.get("status")
+    if body.status != "available":
+        raise HTTPException(status_code=400, detail="Invalid status")
 
-    if status != "available":
-        return flask.jsonify({"error": "Invalid status"}), 400
-
-    # Call Driver-Service via gRPC to update status
-    result = ClientCalls.DriverReg.Update_Driver_Status(
-        status=status,
-        driver_id=str(driver_id),
+    result = await asyncio.to_thread(
+        ClientCalls.DriverReg.Update_Driver_Status,
+        body.status,
+        str(driver_id),
     )
-    print("printing result in app server:", result)
+
     if not result.get("success"):
-        return (
-            flask.jsonify(
-                {"error": result.get("error", "Failed to update driver status")}
-            ),
-            500,
+        raise HTTPException(
+            status_code=500,
+            detail=result.get("error", "Failed to update driver status"),
         )
 
-    return flask.jsonify(
-        {
-            "message": "Driver is now online",
-            "driver_id": driver_id,
-            "status": status,
-        }
-    ), 200
+    return {
+        "message": "Driver is now online",
+        "driver_id": driver_id,
+        "status": body.status,
+    }
+
+
+# ── WebSocket Route ───────────────────────────────────────────────────
+
+@app.websocket("/ws/driver/location")
+async def ws_driver_location(websocket: WebSocket):
+    """WebSocket endpoint to receive driver GPS updates and forward them
+    to Location-Service via gRPC streaming.
+
+    The frontend sends JSON messages:
+      { "userId": "...", "role": "driver", "lat": 12.88, "lng": 77.58 }
+
+    The server responds with the Location-Service forwarding result:
+      { "result": { "success": true, "message": "..." } }
+    """
+    await websocket.accept()
+    print("[WS] Client connected to /ws/driver/location", flush=True)
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+
+            try:
+                payload = json.loads(data)
+            except Exception as e:
+                print(f"[WS] Invalid JSON payload: {e}", flush=True)
+                continue
+
+            driver_id = str(payload.get("userId") or "")
+            role = payload.get("role")
+            lat = payload.get("lat")
+            lng = payload.get("lng")
+
+            print(
+                f"[WS] driver_id={driver_id} role={role} lat={lat} lng={lng}",
+                flush=True,
+            )
+
+            if role != "driver" or not driver_id or lat is None or lng is None:
+                print("[WS] Skipping invalid/non-driver update", flush=True)
+                continue
+
+            try:
+                lat_f = float(lat)
+                lon_f = float(lng)
+            except (TypeError, ValueError):
+                print("[WS] Invalid coordinate types", flush=True)
+                continue
+
+            timestamp_ms = int(time.time() * 1000)
+
+            # Offload blocking gRPC streaming call to thread pool
+            result = await asyncio.to_thread(
+                StreamLocation.stream_location_once,
+                driver_id,
+                lat_f,
+                lon_f,
+                timestamp_ms,
+            )
+            print(f"[WS] Forwarded to Location-Service: {result}", flush=True)
+
+            try:
+                await websocket.send_text(json.dumps({"result": result}))
+            except Exception as e:
+                print(f"[WS] Failed to send result to client: {e}", flush=True)
+
+    except WebSocketDisconnect:
+        print("[WS] Client disconnected from /ws/driver/location", flush=True)
+
+
+# ── Entrypoint ────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    import uvicorn
+    uvicorn.run("app:app", host="0.0.0.0", port=5001, reload=True)

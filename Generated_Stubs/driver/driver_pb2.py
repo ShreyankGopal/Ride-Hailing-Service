@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x64river.proto\x12\x06\x64river\"?\n\rDriverDetails\x12\x11\n\tdriver_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\r\n\x05phone\x18\x03 \x01(\t\"<\n\x12SendDriversRequest\x12&\n\x07\x64rivers\x18\x01 \x03(\x0b\x32\x15.driver.DriverDetails\"5\n\x13SendDriversResponse\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\r\n\x05\x63ount\x18\x02 \x01(\x05\">\n\x19UpdateDriverStatusRequest\x12\x11\n\tdriver_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\"R\n\x18SetDriverPositionRequest\x12\x11\n\tdriver_id\x18\x01 \x01(\t\x12\x10\n\x08latitude\x18\x02 \x01(\x01\x12\x11\n\tlongitude\x18\x03 \x01(\x01\"=\n\x19SetDriverPositionResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"-\n\x1aUpdateDriverStatusResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x32\x98\x02\n\rDriverService\x12[\n\x12UpdateDriverStatus\x12!.driver.UpdateDriverStatusRequest\x1a\".driver.UpdateDriverStatusResponse\x12\x46\n\x0bSendDrivers\x12\x1a.driver.SendDriversRequest\x1a\x1b.driver.SendDriversResponse\x12\x62\n\x1bSetAndForwardDriverPosition\x12 .driver.SetDriverPositionRequest\x1a!.driver.SetDriverPositionResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x64river.proto\x12\x06\x64river\"?\n\rDriverDetails\x12\x11\n\tdriver_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\r\n\x05phone\x18\x03 \x01(\t\"<\n\x12SendDriversRequest\x12&\n\x07\x64rivers\x18\x01 \x03(\x0b\x32\x15.driver.DriverDetails\"5\n\x13SendDriversResponse\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\r\n\x05\x63ount\x18\x02 \x01(\x05\">\n\x19UpdateDriverStatusRequest\x12\x11\n\tdriver_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\"R\n\x18SetDriverPositionRequest\x12\x11\n\tdriver_id\x18\x01 \x01(\t\x12\x10\n\x08latitude\x18\x02 \x01(\x01\x12\x11\n\tlongitude\x18\x03 \x01(\x01\"=\n\x19SetDriverPositionResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"-\n\x1aUpdateDriverStatusResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\"-\n\x18GetDriverPositionRequest\x12\x11\n\tdriver_id\x18\x01 \x01(\t\"O\n\x19GetDriverPositionResponse\x12\r\n\x05\x66ound\x18\x01 \x01(\x08\x12\x10\n\x08latitude\x18\x02 \x01(\x01\x12\x11\n\tlongitude\x18\x03 \x01(\x01\x32\xf2\x02\n\rDriverService\x12[\n\x12UpdateDriverStatus\x12!.driver.UpdateDriverStatusRequest\x1a\".driver.UpdateDriverStatusResponse\x12\x46\n\x0bSendDrivers\x12\x1a.driver.SendDriversRequest\x1a\x1b.driver.SendDriversResponse\x12\x62\n\x1bSetAndForwardDriverPosition\x12 .driver.SetDriverPositionRequest\x1a!.driver.SetDriverPositionResponse\x12X\n\x11GetDriverPosition\x12 .driver.GetDriverPositionRequest\x1a!.driver.GetDriverPositionResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -45,6 +45,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_SETDRIVERPOSITIONRESPONSE']._serialized_end=415
   _globals['_UPDATEDRIVERSTATUSRESPONSE']._serialized_start=417
   _globals['_UPDATEDRIVERSTATUSRESPONSE']._serialized_end=462
-  _globals['_DRIVERSERVICE']._serialized_start=465
-  _globals['_DRIVERSERVICE']._serialized_end=745
+  _globals['_GETDRIVERPOSITIONREQUEST']._serialized_start=464
+  _globals['_GETDRIVERPOSITIONREQUEST']._serialized_end=509
+  _globals['_GETDRIVERPOSITIONRESPONSE']._serialized_start=511
+  _globals['_GETDRIVERPOSITIONRESPONSE']._serialized_end=590
+  _globals['_DRIVERSERVICE']._serialized_start=593
+  _globals['_DRIVERSERVICE']._serialized_end=963
 # @@protoc_insertion_point(module_scope)

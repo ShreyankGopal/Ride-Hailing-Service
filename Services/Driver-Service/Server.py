@@ -100,9 +100,52 @@ class DriverService(driver_pb2_grpc.DriverServiceServicer):
             driver_id,
             f"{lat},{lon}"
         )
+        # Persist the region for this driver so other services (e.g.,
+        # GetDriverPosition) can quickly look up the latest coordinates
+        # without having to recompute or scan all driver regions.
+        redis_client.set(f"driver_region:{driver_id}", region)
         print(f"[DriverService][SetAndForwardDriverPosition] stored driver {driver_id} in region {region} with position {lat},{lon}")
 
         return driver_pb2.SetDriverPositionResponse(success=True, message="available")
+
+
+    def GetDriverPosition(self, request, context):
+        """Return the latest known position for a given driver_id.
+
+        Position is stored in Redis under the hash key drivers:{region}
+        with field = driver_id and value = "lat,lon". We also maintain
+        a helper key driver_region:{driver_id} to remember which region
+        the driver was last written to.
+        """
+
+        driver_id = request.driver_id
+        if not driver_id:
+            return driver_pb2.GetDriverPositionResponse(found=False)
+
+        region = redis_client.get(f"driver_region:{driver_id}")
+        if not region:
+            return driver_pb2.GetDriverPositionResponse(found=False)
+
+        value = redis_client.hget(f"drivers:{region}", driver_id)
+        if not value:
+            return driver_pb2.GetDriverPositionResponse(found=False)
+
+        try:
+            lat_str, lon_str = value.split(",")
+            lat = float(lat_str)
+            lon = float(lon_str)
+        except Exception:
+            return driver_pb2.GetDriverPositionResponse(found=False)
+
+        print(
+            f"[DriverService][GetDriverPosition] driver_id={driver_id}, region={region}, "
+            f"lat={lat}, lon={lon}"
+        )
+        return driver_pb2.GetDriverPositionResponse(
+            found=True,
+            latitude=lat,
+            longitude=lon,
+        )
 
 
 def serve():

@@ -16,6 +16,19 @@ L.Icon.Default.mergeOptions({
     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
+const carIcon = new L.Icon({
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+  iconRetinaUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+  shadowUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
 /** Forces Leaflet to recalc size after render */
 function FixMapResize() {
   const map = useMap();
@@ -29,7 +42,13 @@ function FixMapResize() {
   return null;
 }
 
-export default function DriverLiveMap({ position }: { position: LatLngExpression }) {
+export default function DriverLiveMap({
+  position,
+  driverPosition,
+}: {
+  position: LatLngExpression;
+  driverPosition?: LatLngExpression | null;
+}) {
 
   // useEffect(() => {
   //   if (!navigator.geolocation) {
@@ -66,19 +85,22 @@ export default function DriverLiveMap({ position }: { position: LatLngExpression
   }
 
   return (
-  <MapContainer
-    center={position}
-    zoom={15}
-    scrollWheelZoom={true}
-    style={{ height: "100%", width: "100%", minHeight: "500px" }}
-    className="z-0"
-  >
-    <TileLayer
-      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-    />
-    <Marker position={position} />
-    <FixMapResize />
-  </MapContainer>
-);
+    <MapContainer
+      center={position}
+      zoom={15}
+      scrollWheelZoom={true}
+      style={{ height: "100%", width: "100%", minHeight: "500px" }}
+      className="z-0"
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      {/* Rider or primary position marker */}
+      <Marker position={position} />
+      {/* Optional driver marker (shown on rider match page) */}
+      {driverPosition && <Marker position={driverPosition} icon={carIcon} />}
+      <FixMapResize />
+    </MapContainer>
+  );
 }

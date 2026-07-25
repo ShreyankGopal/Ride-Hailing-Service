@@ -23,10 +23,12 @@ export default function RiderMatchPage() {
   const [isMatching, setIsMatching] = useState<boolean>(false);
   const [matchError, setMatchError] = useState<string | null>(null);
   const [matchInfo, setMatchInfo] = useState<{
+    driverID: string;
     driverName: string;
     driverPhone: string;
     otp: string;
   } | null>(null);
+  const [driverPosition, setDriverPosition] = useState<LatLngExpression | null>(null);
 
   const lastKnownRef = useRef<GeolocationPosition | null>(null);
 
@@ -125,6 +127,7 @@ export default function RiderMatchPage() {
           setMatchError("No drivers available right now. Please try again shortly.");
         } else {
           setMatchInfo({
+            driverID: data.driver_id ?? "",
             driverName: data.driver_name ?? "",
             driverPhone: data.driver_phone ?? "",
             otp: data.otp ?? "",
@@ -141,6 +144,36 @@ export default function RiderMatchPage() {
 
     initiate();
   }, [userId, role]);
+
+  // Poll backend for assigned driver's position every 3 seconds
+  useEffect(() => {
+    if (!matchInfo?.driverID) return;
+
+    const driverId = matchInfo.driverID;
+
+    const fetchPosition = async () => {
+      try {
+        const response = await axios.post(
+          "http://localhost:5001/driverPosition",
+          { driver_id: driverId },
+          { withCredentials: true }
+        );
+
+        const data = response.data;
+        if (data.found && typeof data.latitude === "number" && typeof data.longitude === "number") {
+          setDriverPosition([data.latitude, data.longitude]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch driver position", err);
+      }
+    };
+
+    // Fetch immediately, then every 3 seconds
+    fetchPosition();
+    const interval = setInterval(fetchPosition, 3000);
+
+    return () => clearInterval(interval);
+  }, [matchInfo?.driverID]);
 
   if (isLoadingUser) {
     return (
@@ -220,7 +253,12 @@ export default function RiderMatchPage() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#22c55e_0,_transparent_45%),_radial-gradient(circle_at_bottom,_#0ea5e9_0,_transparent_45%)] opacity-40" />
 
           <div className="relative z-10 h-full w-full">
-            {position && <DriverLiveMap position={position} />}
+            {position && (
+              <DriverLiveMap
+                position={position}
+                driverPosition={driverPosition}
+              />
+            )}
           </div>
         </section>
       </main>

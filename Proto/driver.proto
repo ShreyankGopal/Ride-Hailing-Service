@@ -34,9 +34,21 @@ message UpdateDriverStatusResponse {
   bool success = 1;
 }
 
+// Request/response for fetching a driver's latest known position.
+message GetDriverPositionRequest {
+  string driver_id = 1;
+}
+
+message GetDriverPositionResponse {
+  bool found = 1;
+  double latitude = 2;
+  double longitude = 3;
+}
+
 service DriverService {
   
   rpc UpdateDriverStatus(UpdateDriverStatusRequest) returns (UpdateDriverStatusResponse);
   rpc SendDrivers(SendDriversRequest) returns (SendDriversResponse);
   rpc SetAndForwardDriverPosition(SetDriverPositionRequest) returns (SetDriverPositionResponse);
+  rpc GetDriverPosition(GetDriverPositionRequest) returns (GetDriverPositionResponse);
 }

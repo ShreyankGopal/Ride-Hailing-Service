@@ -1,10 +1,22 @@
-from functools import wraps
-from typing import Callable, Optional, Tuple, Dict, Any
+"""
+auth_middleware.py — FastAPI dependency for JWT authentication.
+
+Usage in a route:
+    from Server_Handlers.middleware.auth_middleware import get_current_user
+
+    @app.post("/some-route")
+    async def some_route(user: dict = Depends(get_current_user)):
+        rider_id = user.get("sub")
+        ...
+"""
 
 import os
+from typing import Any, Dict, Optional, Tuple
 
-import flask
+# pyrefly: ignore [missing-import]
 import jwt
+# pyrefly: ignore [missing-import]
+from fastapi import HTTPException, Request
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-change-me")
 ALGORITHM = "HS256"
@@ -24,38 +36,19 @@ def _decode_token(token: str) -> Tuple[bool, Optional[Dict[str, Any]], Optional[
         return False, None, "Invalid token"
 
 
-def get_current_user_from_request(request: flask.Request) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
-    """Extract and validate the JWT token from the incoming request.
+async def get_current_user(request: Request) -> Dict[str, Any]:
+    """FastAPI dependency that extracts and validates the JWT from the
+    ``access_token`` HTTP-only cookie.
 
-    The token is expected to be present in the `access_token` cookie.
+    Raises ``HTTPException(401)`` when the token is missing or invalid so
+    FastAPI returns a proper JSON error response automatically.
     """
     token = request.cookies.get("access_token")
     if not token:
-        return False, None, "Missing access token"
+        raise HTTPException(status_code=401, detail="Missing access token")
 
-    return _decode_token(token)
+    is_valid, payload, error = _decode_token(token)
+    if not is_valid or payload is None:
+        raise HTTPException(status_code=401, detail=error or "Unauthorized")
 
-
-def auth_required(fn: Callable) -> Callable:
-    """Decorator to protect routes that require authentication.
-
-    Usage example in a route (in app.py):
-
-        @app.route("/protected", methods=["GET"])
-        @auth_required
-        def protected_endpoint():
-            user = flask.g.current_user
-            return flask.jsonify({"message": "ok", "user": user})
-    """
-
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        is_valid, payload, error = get_current_user_from_request(flask.request)
-        if not is_valid or payload is None:
-            return flask.jsonify({"error": error or "Unauthorized"}), 401
-
-        # Attach the user payload to flask.g for downstream use.
-        flask.g.current_user = payload
-        return fn(*args, **kwargs)
-
-    return wrapper
+    return payload

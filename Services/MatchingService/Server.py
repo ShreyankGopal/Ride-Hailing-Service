@@ -60,6 +60,12 @@ class MatchingService(Matching_pb2_grpc.MatchingServiceServicer):
         best_dist = float("inf")
 
         for driver_id, pos in drivers.items():
+            # Skip passenger-detail fields stored by MatchingService
+            # (format: "{driver_id}:passenger")
+            driver_id_str = driver_id if isinstance(driver_id, str) else driver_id.decode()
+            if ":" in driver_id_str:
+                continue
+
             if redis_client.get(f"driver_status:{driver_id}") != "available":
                 print(f"[MatchingService][RequestMatch] driver {driver_id} not available, skipping")
                 continue
@@ -75,6 +81,34 @@ class MatchingService(Matching_pb2_grpc.MatchingServiceServicer):
 
         if not nearest_driver:
             print("no driver available here\n")
+            return Matching_pb2.MatchResponse(found=False)
+
+        # ------------------------------------------------------------------
+        # ATOMIC LOCK — prevent double-booking under concurrent match
+        # requests hitting this service simultaneously.
+        #
+        # redis SET NX EX is atomic: only ONE caller can set the key when
+        # it does not already exist.  The 10-second TTL is a safety net so
+        # the lock auto-releases if the process crashes before deletion.
+        # ------------------------------------------------------------------
+        lock_key = f"driver_lock:{nearest_driver}"
+        lock_acquired = redis_client.set(lock_key, "1", nx=True, ex=10)
+        if not lock_acquired:
+            # Another concurrent request already claimed this driver.
+            print(
+                f"[MatchingService][RequestMatch] driver {nearest_driver} already "
+                "claimed by another request — no match"
+            )
+            return Matching_pb2.MatchResponse(found=False)
+
+        # Double-check status after acquiring the lock — another process
+        # might have changed it between our scan above and now.
+        if redis_client.get(f"driver_status:{nearest_driver}") != "available":
+            redis_client.delete(lock_key)   # release lock; driver no longer free
+            print(
+                f"[MatchingService][RequestMatch] driver {nearest_driver} status "
+                "changed after lock acquisition — releasing lock"
+            )
             return Matching_pb2.MatchResponse(found=False)
 
         # ------------------------------------------------------------------
@@ -98,6 +132,10 @@ class MatchingService(Matching_pb2_grpc.MatchingServiceServicer):
         # ------------------------------------------------------------------
         DriverStatusUpdate.update_driver_status(nearest_driver, "Busy")
         print(f"[MatchingService][RequestMatch] updated driver {nearest_driver} status to Busy")
+
+        # Release the short-lived claim lock now that driver_status:busy
+        # is persisted — the busy status itself prevents future matches.
+        redis_client.delete(lock_key)
 
         # ------------------------------------------------------------------
         # Start the trip and obtain the OTP that links rider and driver.

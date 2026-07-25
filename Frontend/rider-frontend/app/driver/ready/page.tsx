@@ -24,6 +24,11 @@ export default function DriverReadyPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [position, setPosition] = useState<LatLngExpression | null>(null);
+  const [passengerInfo, setPassengerInfo] = useState<{
+    name: string;
+    phone: string;
+    otp: string;
+  } | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   // Basic auth guard using /me (same pattern as other driver pages)
@@ -64,7 +69,28 @@ export default function DriverReadyPage() {
     ws.onerror = (event) => {
       console.error("WebSocket error for driver location streaming", event);
     };
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log("WS response from backend:", data);
 
+        const message: unknown = (data as any)?.result?.message;
+        if (typeof message === "string" && message.includes("+")) {
+          const parts = message.split("+");
+          if (parts.length >= 4) {
+            const [name, phone, station, otp] = parts;
+            setPassengerInfo({
+              name: name || "",
+              phone: phone || "",
+              otp: otp || "",
+            });
+            console.log("Parsed passenger info:", { name, phone, station, otp });
+          }
+        }
+      } catch (e) {
+        console.log("WS raw response:", event.data);
+      }
+    };
     return () => {
       ws.close();
     };
@@ -163,13 +189,34 @@ export default function DriverReadyPage() {
               will show a live map with your location and nearby demand once
               integrated.
             </p>
+            {passengerInfo && (
+              <div className="mt-4 rounded-xl border border-emerald-500/50 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-50 shadow-md shadow-emerald-500/20">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-300/80">
+                  Assigned passenger
+                </p>
+                <p className="mt-1 text-sm font-semibold">
+                  {passengerInfo.name || "Unnamed passenger"}
+                </p>
+                <p className="mt-1 text-xs text-emerald-100/90">
+                  Contact: <span className="font-mono">{passengerInfo.phone}</span>
+                </p>
+                <p className="mt-2 text-xs">
+                  OTP for pickup:
+                  <span className="ml-2 inline-flex items-center rounded-full bg-emerald-500 px-2 py-0.5 text-[11px] font-semibold text-slate-950 shadow-sm shadow-emerald-500/40">
+                    {passengerInfo.otp || "N/A"}
+                  </span>
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Simple loading/spinner indicator */}
-          <div className="flex items-center gap-3 text-xs text-slate-200">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
-            <span>Waiting for trip requests</span>
-          </div>
+          {/* Simple loading/spinner indicator (hidden once a passenger is assigned) */}
+          {!passengerInfo && (
+            <div className="flex items-center gap-3 text-xs text-slate-200">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
+              <span>Waiting for trip requests</span>
+            </div>
+          )}
         </section>
 
         {/* Map placeholder area */}

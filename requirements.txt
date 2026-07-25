@@ -1,6 +1,11 @@
-flask 
-grpcio 
-grpcio-tools
+fastapi
+uvicorn[standard]
+python-dotenv
+httpx
+pydantic
+pyjwt
+passlib[bcrypt]
+python-jose[cryptography]
 redis
 geohash2
 flask-cors
