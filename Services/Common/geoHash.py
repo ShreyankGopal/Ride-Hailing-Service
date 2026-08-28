@@ -7,7 +7,7 @@ No expansion, no neighbors, no extra logic.
 import geohash2
 
 # 7 ≈ ~150m x 150m (good enough for city-level matching)
-DEFAULT_PRECISION = 7
+DEFAULT_PRECISION = 4
 
 
 def get_region(lat: float, lon: float, precision: int = DEFAULT_PRECISION) -> str:

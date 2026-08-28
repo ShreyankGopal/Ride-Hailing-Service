@@ -2,15 +2,31 @@ syntax = "proto3";
 
 package notification;
 
-message NotifyRequest {
-  string user_id = 1;
-  string message = 2;
-}
-
-message NotifyResponse {
-  bool success = 1;
-}
-
 service NotificationService {
-  rpc SendNotification(NotifyRequest) returns (NotifyResponse);
+  rpc SendDriverNotification(DriverNotificationRequest) returns (NotificationAck);
+  rpc SendRiderNotification(RiderNotificationRequest) returns (NotificationAck);
+}
+
+message DriverNotificationRequest {
+  string driver_id = 1;
+  string rider_name = 2;
+  string rider_phone = 3;
+  string otp = 4;
+  float station_lat = 5;
+  float station_lon = 6;
+  string trip_id = 7;
+}
+
+message RiderNotificationRequest {
+  string rider_id = 1;
+  string notification_type = 2;
+  string driver_id = 3;
+  string driver_name = 4;
+  string driver_phone = 5;
+  string otp = 6;
+  string trip_id = 7;
+}
+
+message NotificationAck {
+  bool success = 1;
 }

@@ -29,6 +29,19 @@ const carIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
+const riderIcon = new L.Icon({
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png",
+  iconRetinaUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
+  shadowUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
 /** Forces Leaflet to recalc size after render */
 function FixMapResize() {
   const map = useMap();
@@ -45,9 +58,11 @@ function FixMapResize() {
 export default function DriverLiveMap({
   position,
   driverPosition,
+  riderPosition,
 }: {
   position: LatLngExpression;
   driverPosition?: LatLngExpression | null;
+  riderPosition?: LatLngExpression | null;
 }) {
 
   // useEffect(() => {
@@ -100,6 +115,8 @@ export default function DriverLiveMap({
       <Marker position={position} />
       {/* Optional driver marker (shown on rider match page) */}
       {driverPosition && <Marker position={driverPosition} icon={carIcon} />}
+      {/* Optional rider marker (shown on driver ready page after match) */}
+      {riderPosition && <Marker position={riderPosition} icon={riderIcon} />}
       <FixMapResize />
     </MapContainer>
   );

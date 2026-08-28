@@ -92,19 +92,20 @@ class UserService(user_pb2_grpc.UserServiceServicer):
         return user_pb2.RegisterResponse(success=True)
 
     def Login(self, request, context):
-        print("Login request received")
-        print(request)
-
+        print(f"Login request received for phone: {request.phone}")
+        
         # Fetch user by phone from PostgreSQL.
         user_row = get_user_by_phone(request.phone)
         
         if not user_row:
-            # No such user.
+            print(f"Login failed: No user found with phone {request.phone}")
             return user_pb2.LoginResponse(token="")
 
         # Verify password.
         password_hash = hashlib.sha256(request.password.encode("utf-8")).hexdigest()
         if user_row["password"] != password_hash:
+            print(f"Login failed for phone {request.phone}: Password mismatch.")
+            print(f"Expected Hash: {user_row['password']} | Provided Hash: {password_hash}")
             return user_pb2.LoginResponse(token="")
 
         # Build JWT token consistent with previous auth logic.
@@ -114,7 +115,7 @@ class UserService(user_pb2_grpc.UserServiceServicer):
         }
         role=user_row["role"]
         token = _create_access_token(token_payload, ACCESS_TOKEN_EXPIRE_SECONDS)
-        print(role)
+        print(f"Login successful for {request.phone}. Role: {role}")
         return user_pb2.LoginResponse(token=token,role=role)
     
     def GetUserById(self, request, context):
@@ -145,9 +146,9 @@ class UserService(user_pb2_grpc.UserServiceServicer):
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     user_pb2_grpc.add_UserServiceServicer_to_server(UserService(), server)
-    server.add_insecure_port('[::]:50051')
+    server.add_insecure_port('[::]:50058')
     server.start()
-    print("User service starting on port 50051...")
+    print("User service starting on port 50058...")
     server.wait_for_termination()
 
 

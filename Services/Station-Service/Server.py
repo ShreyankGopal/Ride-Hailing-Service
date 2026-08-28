@@ -10,7 +10,7 @@ import Generated_Stubs.station.station_pb2 as Station_pb2
 import Generated_Stubs.station.station_pb2_grpc as Station_pb2_grpc
 stations = {
     "1": {"name": "Station 1", "lat": 12.88005258237233, "lon": 77.58702374463442},
-    "2": {"name": "Station 2", "lat": 12.9352, "lon": 77.6245},
+    "2": {"name": "Station 2", "lat": 12.843415552369118, "lon": 77.66340761232324},
     "3": {"name": "Station 3", "lat": 12.9084, "lon": 77.6753},
     "4": {"name": "Station 4", "lat": 12.8816, "lon": 77.7261},
 }

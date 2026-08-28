@@ -1,7 +1,8 @@
 "use client";
+// in next js we do not have ueNavigate instead we have useRouter imported from next/navigation
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
 import "../../../../../globals.css";
@@ -29,8 +30,10 @@ export default function RiderMatchPage() {
     otp: string;
   } | null>(null);
   const [driverPosition, setDriverPosition] = useState<LatLngExpression | null>(null);
+  const [showCancelPrompt, setShowCancelPrompt] = useState(false);
 
   const lastKnownRef = useRef<GeolocationPosition | null>(null);
+  const notifWsRef = useRef<WebSocket | null>(null);
 
   // Auth via /me
   useEffect(() => {
@@ -52,7 +55,7 @@ export default function RiderMatchPage() {
     fetchCurrentUser();
   }, [router]);
 
-  // Basic GPS polling similar to DriverReadyPage (but no WebSocket streaming)
+  // Basic GPS polling
   useEffect(() => {
     if (!navigator.geolocation) return;
 
@@ -84,7 +87,7 @@ export default function RiderMatchPage() {
     ? destinationParam.replace(/\+/g, " ")
     : "";
 
-  // Register rider when match page loads, once we know user and params
+  // Register rider when match page loads
   useEffect(() => {
     if (!userId || role !== "rider") return;
     if (!stationId || !humanDestination) return;
@@ -107,7 +110,46 @@ export default function RiderMatchPage() {
     register();
   }, [userId, role, stationId, humanDestination]);
 
-  // Initiate match once rider is authenticated
+  // Connect to rider notification WebSocket BEFORE initiating match
+  useEffect(() => {
+    if (!userId || role !== "rider") return;
+
+    const ws = new WebSocket(`ws://localhost:5001/ws/rider/notifications/${userId}`);
+    notifWsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("Rider notification WebSocket connected");
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log("Rider notification received:", data);
+
+        if (data.notification_type === "match_found") {
+          // Navigate immediately to the onGoing screen.
+          // The onGoing page will fetch trip details via /me/tripStatus.
+          router.push("/rider/onGoing");
+        } else if (data.notification_type === "no_driver_found") {
+          setMatchInfo(null);
+          setMatchError("No drivers available right now. Please try again shortly.");
+          setIsMatching(false);
+        }
+      } catch (e) {
+        console.error("Failed to parse notification", e);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log("Rider notification WebSocket disconnected");
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [userId, role]);
+
+  // Queue match request (fire-and-forget, returns 202)
   useEffect(() => {
     if (!userId || role !== "rider") return;
 
@@ -115,29 +157,17 @@ export default function RiderMatchPage() {
       setIsMatching(true);
       setMatchError(null);
       try {
-        const response = await axios.post(
+        await axios.post(
           "http://localhost:5001/initiateMatch",
           {},
           { withCredentials: true }
         );
-
-        const data = response.data;
-        if (!data.found) {
-          setMatchInfo(null);
-          setMatchError("No drivers available right now. Please try again shortly.");
-        } else {
-          setMatchInfo({
-            driverID: data.driver_id ?? "",
-            driverName: data.driver_name ?? "",
-            driverPhone: data.driver_phone ?? "",
-            otp: data.otp ?? "",
-          });
-        }
+        // 202 returned — now waiting for WebSocket notification
+        console.log("Match request queued, waiting for WebSocket notification...");
       } catch (err) {
         console.error("Failed to initiate match", err);
         setMatchInfo(null);
         setMatchError("Failed to initiate match. Please refresh and try again.");
-      } finally {
         setIsMatching(false);
       }
     };
@@ -168,12 +198,46 @@ export default function RiderMatchPage() {
       }
     };
 
-    // Fetch immediately, then every 3 seconds
     fetchPosition();
     const interval = setInterval(fetchPosition, 3000);
 
     return () => clearInterval(interval);
   }, [matchInfo?.driverID]);
+
+  // Cancel match handler
+  const handleCancelMatch = useCallback(async () => {
+    try {
+      await axios.post(
+        "http://localhost:5001/cancelMatch",
+        {},
+        { withCredentials: true }
+      );
+      console.log("Match cancelled");
+    } catch (err) {
+      console.error("Failed to cancel match", err);
+    }
+    setShowCancelPrompt(false);
+    router.push("/rider/booking");
+  }, [router]);
+
+  // Intercept browser back button
+  useEffect(() => {
+    if (matchInfo) return; // Already matched, no need to intercept
+
+    const handlePopState = (e: PopStateEvent) => {
+      // Push current state back so user stays on the page
+      window.history.pushState(null, "", window.location.href);
+      setShowCancelPrompt(true);
+    };
+
+    // Push an extra history entry so we can intercept back
+    window.history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [matchInfo]);
 
   if (isLoadingUser) {
     return (
@@ -189,6 +253,32 @@ export default function RiderMatchPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
+      {/* Cancel confirmation modal */}
+      {showCancelPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold text-slate-100">Cancel driver search?</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Are you sure you want to stop searching for a driver? Your request will be removed from the queue.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setShowCancelPrompt(false)}
+                className="flex-1 rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 transition hover:bg-slate-800"
+              >
+                Keep searching
+              </button>
+              <button
+                onClick={handleCancelMatch}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-red-600/30 transition hover:bg-red-500"
+              >
+                Yes, cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-8 md:px-8">
         <section className="relative z-10 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/85 px-5 py-4 shadow-lg shadow-black/40 md:flex-row md:items-center md:justify-between">
           <div>
@@ -201,7 +291,7 @@ export default function RiderMatchPage() {
             <p className="mt-2 max-w-xl text-xs text-slate-300">
               {matchInfo
                 ? "You have been matched with a driver. Review the trip details below."
-                : "We are finding a driver for your trip."}
+                : "We are finding a driver for your trip. This may take up to 15 seconds."}
             </p>
             <p className="mt-2 max-w-xl text-xs text-slate-300">
               <span className="font-semibold">Start station ID:</span> {stationId}

@@ -4,7 +4,7 @@ import Generated_Stubs.user.user_pb2_grpc
 
 def register(name, phone, role, password):
     try:
-        channel = grpc.insecure_channel("localhost:50051")
+        channel = grpc.insecure_channel("localhost:50058")
         stub = Generated_Stubs.user.user_pb2_grpc.UserServiceStub(channel)
         request = Generated_Stubs.user.user_pb2.RegisterRequest(name=name, phone=phone, role=role, password=password)
         response = stub.Register(request)# Register is the function on the server end which is being exposed. Grpc provides a remote method to call the methids or procedure
@@ -20,7 +20,7 @@ def register(name, phone, role, password):
         }
 def Login(phone, password):
     try:
-        channel = grpc.insecure_channel("localhost:50051")
+        channel = grpc.insecure_channel("localhost:50058")
         stub = Generated_Stubs.user.user_pb2_grpc.UserServiceStub(channel)
         request = Generated_Stubs.user.user_pb2.LoginRequest(
             phone=phone,

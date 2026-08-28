@@ -24,17 +24,19 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12notification.proto\x12\x0cnotification\"1\n\rNotifyRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\t\"!\n\x0eNotifyResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x32\x64\n\x13NotificationService\x12M\n\x10SendNotification\x12\x1b.notification.NotifyRequest\x1a\x1c.notification.NotifyResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12notification.proto\x12\x0cnotification\"\x9f\x01\n\x19\x44riverNotificationRequest\x12\x11\n\tdriver_id\x18\x01 \x01(\t\x12\x12\n\nrider_name\x18\x02 \x01(\t\x12\x13\n\x0brider_phone\x18\x03 \x01(\t\x12\x0b\n\x03otp\x18\x04 \x01(\t\x12\x13\n\x0bstation_lat\x18\x05 \x01(\x02\x12\x13\n\x0bstation_lon\x18\x06 \x01(\x02\x12\x0f\n\x07trip_id\x18\x07 \x01(\t\"\xa3\x01\n\x18RiderNotificationRequest\x12\x10\n\x08rider_id\x18\x01 \x01(\t\x12\x19\n\x11notification_type\x18\x02 \x01(\t\x12\x11\n\tdriver_id\x18\x03 \x01(\t\x12\x13\n\x0b\x64river_name\x18\x04 \x01(\t\x12\x14\n\x0c\x64river_phone\x18\x05 \x01(\t\x12\x0b\n\x03otp\x18\x06 \x01(\t\x12\x0f\n\x07trip_id\x18\x07 \x01(\t\"\"\n\x0fNotificationAck\x12\x0f\n\x07success\x18\x01 \x01(\x08\x32\xd7\x01\n\x13NotificationService\x12`\n\x16SendDriverNotification\x12\'.notification.DriverNotificationRequest\x1a\x1d.notification.NotificationAck\x12^\n\x15SendRiderNotification\x12&.notification.RiderNotificationRequest\x1a\x1d.notification.NotificationAckb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'notification_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_NOTIFYREQUEST']._serialized_start=36
-  _globals['_NOTIFYREQUEST']._serialized_end=85
-  _globals['_NOTIFYRESPONSE']._serialized_start=87
-  _globals['_NOTIFYRESPONSE']._serialized_end=120
-  _globals['_NOTIFICATIONSERVICE']._serialized_start=122
-  _globals['_NOTIFICATIONSERVICE']._serialized_end=222
+  _globals['_DRIVERNOTIFICATIONREQUEST']._serialized_start=37
+  _globals['_DRIVERNOTIFICATIONREQUEST']._serialized_end=196
+  _globals['_RIDERNOTIFICATIONREQUEST']._serialized_start=199
+  _globals['_RIDERNOTIFICATIONREQUEST']._serialized_end=362
+  _globals['_NOTIFICATIONACK']._serialized_start=364
+  _globals['_NOTIFICATIONACK']._serialized_end=398
+  _globals['_NOTIFICATIONSERVICE']._serialized_start=401
+  _globals['_NOTIFICATIONSERVICE']._serialized_end=616
 # @@protoc_insertion_point(module_scope)

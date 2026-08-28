@@ -57,6 +57,10 @@ class TripService(trip_pb2_grpc.TripServiceServicer):
             }
         )
 
+        # Reverse index — lets us look up an active trip by user id
+        redis_client.set(f"rider_trip:{request.rider_id}", trip_id)
+        redis_client.set(f"driver_trip:{request.driver_id}", trip_id)
+
         print("[TripService][StartTrip] Trip created with id", trip_id,
               "otp=", otp)
 
@@ -112,9 +116,11 @@ class TripService(trip_pb2_grpc.TripServiceServicer):
             except Exception as e:
                 print(f"Error updating driver status: {e}")
 
-            # Optional cleanup: delete trip after completion
+            # Cleanup: delete trip and reverse index keys after completion
             redis_client.delete(trip_key)
-            print(f"[TripService] Deleted trip {request.trip_id} from Redis")
+            redis_client.delete(f"rider_trip:{rider_id}")
+            redis_client.delete(f"driver_trip:{driver_id}")
+            print(f"[TripService] Deleted trip {request.trip_id} and reverse index from Redis")
 
         return trip_pb2.UpdateTripStatusResponse(success=True)
 

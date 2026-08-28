@@ -14,6 +14,8 @@ import json
 import os
 import sys
 import time
+import redis
+import boto3
 
 current = os.path.dirname(os.path.realpath(__file__))
 project_root = os.path.dirname(current)
@@ -27,12 +29,33 @@ from pydantic import BaseModel
 
 import ClientCalls.DriverPosition as DriverPosition
 import ClientCalls.DriverReg
-import ClientCalls.Matching
 import ClientCalls.Rider as Rider
 import ClientCalls.stream_location as StreamLocation
 import ClientCalls.TripStatus
 import ClientCalls.UserReg
 from Server_Handlers.middleware.auth_middleware import get_current_user
+
+# ── SQS Client (LocalStack) ─────────────────────────────────────────
+
+SQS_ENDPOINT = os.getenv("SQS_ENDPOINT", "http://localhost:4566")
+
+sqs_client = boto3.client(
+    "sqs",
+    endpoint_url=SQS_ENDPOINT,
+    region_name="us-east-1",
+    aws_access_key_id="test",
+    aws_secret_access_key="test",
+)
+
+RIDE_REQUESTS_QUEUE_URL = sqs_client.get_queue_url(QueueName="RideRequestsQueue")["QueueUrl"]
+
+# Redis client for cancel flags
+redis_gw = redis.Redis(
+    host=os.getenv("REDIS_HOST", "localhost"),
+    port=int(os.getenv("REDIS_PORT", 6379)),
+    db=int(os.getenv("REDIS_DB", 0)),
+    decode_responses=True,
+)
 
 # ── App & Middleware ─────────────────────────────────────────────────
 
@@ -79,6 +102,10 @@ class DriverOnlineBody(BaseModel):
 class TripStatusBody(BaseModel):
     trip_id: str
     status: str
+
+class StartTripBody(BaseModel):
+    trip_id: str
+    otp: str
 
 # ── Helper ───────────────────────────────────────────────────────────
 
@@ -154,6 +181,50 @@ async def me(user: dict = Depends(get_current_user)):
     return {"user_id": user.get("sub"), "role": user.get("role")}
 
 
+@app.get("/me/tripStatus")
+async def me_trip_status(user: dict = Depends(get_current_user)):
+    """Return the authenticated user's active trip status (if any).
+
+    Uses reverse index keys set by Trip-Service:
+      rider_trip:{rider_id}  -> trip_id
+      driver_trip:{driver_id} -> trip_id
+
+    Response shape:
+      { has_active_trip: false }
+      { has_active_trip: true, trip_id: str, trip_status: str,
+        driver_id: str|null, driver_name: str|null, driver_phone: str|null,
+        rider_id: str|null, otp: str|null }
+    """
+    user_id = str(user.get("sub"))
+    role = user.get("role")
+
+    if role == "rider":
+        trip_id = redis_gw.get(f"rider_trip:{user_id}")
+    elif role == "driver":
+        trip_id = redis_gw.get(f"driver_trip:{user_id}")
+    else:
+        return {"has_active_trip": False}
+
+    if not trip_id:
+        return {"has_active_trip": False}
+
+    trip = redis_gw.hgetall(f"trips:{trip_id}")
+    if not trip:
+        # Stale reverse index — clean it up
+        redis_gw.delete(f"rider_trip:{user_id}")
+        redis_gw.delete(f"driver_trip:{user_id}")
+        return {"has_active_trip": False}
+
+    return {
+        "has_active_trip": True,
+        "trip_id": trip_id,
+        "trip_status": trip.get("status"),
+        "rider_id": trip.get("rider_id"),
+        "driver_id": trip.get("driver_id"),
+        "otp": trip.get("otp"),
+    }
+
+
 @app.post("/logout")
 async def logout(response: Response):
     """Clear the auth cookie so the user is logged out."""
@@ -199,11 +270,10 @@ async def register_rider(
 
 @app.post("/initiateMatch")
 async def initiate_match(user: dict = Depends(get_current_user)):
-    """Initiate a driver–rider match for the authenticated rider.
+    """Queue a match request in SQS and return immediately.
 
-    The gRPC call to MatchingService is offloaded to a thread so multiple
-    concurrent match requests are processed in parallel without blocking
-    the event loop.
+    The MatchingService worker will pick this up, find a driver, and
+    push the result to the rider via WebSocket notification.
     """
     rider_id = user.get("sub")
     role = user.get("role")
@@ -211,13 +281,131 @@ async def initiate_match(user: dict = Depends(get_current_user)):
     if role != "rider" or not rider_id:
         raise HTTPException(status_code=403, detail="Only riders can initiate a match")
 
-    result = await asyncio.to_thread(
-        ClientCalls.Matching.request_match, str(rider_id)
+    # Clear any previous cancellation flag
+    redis_gw.delete(f"match_cancelled:{rider_id}") # clearing a prevoius cancellation flag so that matching can happen
+
+    await asyncio.to_thread(
+        sqs_client.send_message,
+        QueueUrl=RIDE_REQUESTS_QUEUE_URL,
+        MessageBody=json.dumps({"rider_id": str(rider_id), "retry_count": 0}),
     )
 
-    print(f"[Gateway] /initiateMatch result: {result}")
-    status_code = 500 if not result.get("found") and "error" in result else 200
-    return JSONResponse(content=result, status_code=status_code)
+    print(f"[Gateway] /initiateMatch queued for rider {rider_id}")
+    return JSONResponse(
+        content={"status": "queued", "message": "Searching for drivers..."},
+        status_code=202,
+    )
+
+
+@app.post("/cancelMatch")
+async def cancel_match(user: dict = Depends(get_current_user)):
+    """Cancel an in-flight match request.
+
+    Sets a Redis flag that the MatchingService worker checks before
+    processing. The message will be skipped and deleted.
+    """
+    rider_id = user.get("sub")
+    role = user.get("role")
+
+    if role != "rider" or not rider_id:
+        raise HTTPException(status_code=403, detail="Only riders can cancel a match")
+
+    redis_gw.set(f"match_cancelled:{rider_id}", "1", ex=60)
+    print(f"[Gateway] /cancelMatch set for rider {rider_id}")
+    return {"status": "cancelled", "message": "Match search cancelled"}
+
+
+@app.post("/startTrip")
+async def start_trip(
+    body: StartTripBody,
+    user: dict = Depends(get_current_user),
+):
+    """Verify OTP and transition trip status from 'matched' to 'OnGoing'.
+
+    The driver enters the OTP they received from the rider.
+    The gateway checks it against the stored trip OTP in Redis.
+    If correct, it calls Trip-Service to update status to 'OnGoing'.
+    """
+    role = user.get("role")
+    driver_id = user.get("sub")
+
+    if role != "driver" or not driver_id:
+        raise HTTPException(status_code=403, detail="Only drivers can start a trip")
+
+    trip_key = f"trips:{body.trip_id}"
+    trip = redis_gw.hgetall(trip_key)
+
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    if trip.get("status") != "matched":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Trip is not in 'matched' state (current: {trip.get('status')})",
+        )
+
+    if trip.get("otp") != body.otp.strip():
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+
+    # OTP verified — update trip status to OnGoing
+    result = await asyncio.to_thread(
+        ClientCalls.TripStatus.update_trip_status,
+        body.trip_id,
+        "OnGoing",
+    )
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=500,
+            detail=result.get("error", "Failed to update trip status"),
+        )
+
+    print(f"[Gateway] /startTrip trip={body.trip_id} now OnGoing (driver={driver_id})")
+    return {"success": True, "trip_id": body.trip_id, "status": "OnGoing"}
+
+
+@app.post("/completeTrip")
+async def complete_trip(user: dict = Depends(get_current_user)):
+    """Mark the active trip as completed (driver only).
+
+    Looks up the driver's active trip via reverse index, then
+    calls Trip-Service to set status to 'completed'.
+    Trip-Service handles freeing the driver and deleting the reverse index.
+    """
+    role = user.get("role")
+    driver_id = str(user.get("sub"))
+
+    if role != "driver" or not driver_id:
+        raise HTTPException(status_code=403, detail="Only drivers can complete a trip")
+
+    trip_id = redis_gw.get(f"driver_trip:{driver_id}")
+    if not trip_id:
+        raise HTTPException(status_code=404, detail="No active trip found")
+
+    trip = redis_gw.hgetall(f"trips:{trip_id}")
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    if trip.get("status") not in ("OnGoing",):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Trip is not OnGoing (current: {trip.get('status')})",
+        )
+
+    result = await asyncio.to_thread(
+        ClientCalls.TripStatus.update_trip_status,
+        trip_id,
+        "completed",
+    )
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=500,
+            detail=result.get("error", "Failed to complete trip"),
+        )
+
+    print(f"[Gateway] /completeTrip trip={trip_id} completed (driver={driver_id})")
+    return {"success": True, "trip_id": trip_id, "status": "completed"}
 
 
 # ── Driver Routes ─────────────────────────────────────────────────────
@@ -336,6 +524,65 @@ async def ws_driver_location(websocket: WebSocket):
 
     except WebSocketDisconnect:
         print("[WS] Client disconnected from /ws/driver/location", flush=True)
+
+
+@app.websocket("/ws/driver/notifications/{driver_id}")
+async def ws_driver_notifications(websocket: WebSocket, driver_id: str):
+    await websocket.accept()
+    print(f"[WS] Driver {driver_id} connected to notifications", flush=True)
+
+    redis_client = redis.Redis(
+        host=os.getenv("REDIS_HOST", "localhost"),
+        port=int(os.getenv("REDIS_PORT", 6379)),
+        db=int(os.getenv("REDIS_DB", 0)),
+        decode_responses=True
+    )
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe(f"driver_notifications:{driver_id}")
+
+    try:
+        while True:
+            msg = await asyncio.to_thread(
+                pubsub.get_message, ignore_subscribe_messages=True, timeout=1.0
+            )
+            if msg and msg["type"] == "message":
+                print(f"[WS] Sending notification to driver {driver_id}: {msg['data']}")
+                await websocket.send_text(msg["data"])
+            await asyncio.sleep(0.05)
+    except WebSocketDisconnect:
+        print(f"[WS] Driver {driver_id} disconnected from notifications", flush=True)
+        pubsub.unsubscribe()
+        redis_client.close()
+
+
+@app.websocket("/ws/rider/notifications/{rider_id}")
+async def ws_rider_notifications(websocket: WebSocket, rider_id: str):
+    """Push match results (match_found / no_driver_found) to rider via WebSocket."""
+    await websocket.accept()
+    print(f"[WS] Rider {rider_id} connected to notifications", flush=True)
+
+    r = redis.Redis(
+        host=os.getenv("REDIS_HOST", "localhost"),
+        port=int(os.getenv("REDIS_PORT", 6379)),
+        db=int(os.getenv("REDIS_DB", 0)),
+        decode_responses=True,
+    )
+    pubsub = r.pubsub()
+    pubsub.subscribe(f"rider_notifications:{rider_id}")
+
+    try:
+        while True:
+            msg = await asyncio.to_thread(
+                pubsub.get_message, ignore_subscribe_messages=True, timeout=1.0
+            )
+            if msg and msg["type"] == "message":
+                print(f"[WS] Sending notification to rider {rider_id}: {msg['data']}")
+                await websocket.send_text(msg["data"])
+            await asyncio.sleep(0.05)
+    except WebSocketDisconnect:
+        print(f"[WS] Rider {rider_id} disconnected from notifications", flush=True)
+        pubsub.unsubscribe()
+        r.close()
 
 
 # ── Entrypoint ────────────────────────────────────────────────────────

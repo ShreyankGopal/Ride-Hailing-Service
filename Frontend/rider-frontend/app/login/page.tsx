@@ -58,15 +58,34 @@ export default function LoginPage() {
 
       // TODO: On success, navigate to a dashboard or home page.
       // For now, simply log to the console.
-      console.log("Login successful");
-      console.log("FULL RESPONSE:", response);
-      if(response.data.role=="driver"){
-        router.push("/driver/home");
+      const role = response.data.role;
+
+      // Check if the user has an active trip in progress
+      let redirectPath = role === "driver" ? "/driver/home" : "/rider/home";
+      try {
+        const statusRes = await axios.get("http://localhost:5001/me/tripStatus", {
+          withCredentials: true,
+        });
+        const { has_active_trip, trip_status } = statusRes.data;
+        if (has_active_trip) {
+          if (role === "rider") {
+            // matched or OnGoing → go to onGoing screen
+            redirectPath = "/rider/onGoing";
+          } else if (role === "driver") {
+            if (trip_status === "matched") {
+              // Driver hasn't started the trip yet — go back to ready screen
+              redirectPath = "/driver/ready";
+            } else {
+              // OnGoing
+              redirectPath = "/driver/onGoing";
+            }
+          }
+        }
+      } catch {
+        // /me/tripStatus failure is non-fatal — fall back to home
       }
-      else if(response.data.role=="rider"){
-        router.push("/rider/home");
-      }
-      
+
+      router.push(redirectPath);
     } catch (error: any) {
       // Capture a friendly error message for the user.
       const apiMessage = error?.response?.data?.error;

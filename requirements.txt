@@ -9,3 +9,6 @@ python-jose[cryptography]
 redis
 geohash2
 flask-cors
+grpcio
+protobuf
+boto3

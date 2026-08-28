@@ -70,7 +70,7 @@ class RiderService(Rider_pb2_grpc.RiderServiceServicer):
         print(f"[RiderService][GetRiderInfo] rider data fetched for rider_id={request.rider_id}:", rider)
 
         # Fetch user details (name, phone) from User-Service via gRPC
-        user_channel = grpc.insecure_channel("localhost:50051")
+        user_channel = grpc.insecure_channel("localhost:50058")
         user_stub = user_pb2_grpc.UserServiceStub(user_channel)
 
         user_name = ""
